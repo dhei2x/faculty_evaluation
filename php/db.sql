@@ -1,0 +1,1 @@
+insert into users (username,email,password,role) values ('admin1','admin@gcc.edu.ph','admin123','admin');
