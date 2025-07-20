@@ -1,6 +1,15 @@
 <?php
 session_start();
+$successMsg = '';
+$errorMsg = '';
 require_once '../php/db.php';
+
+if (isset($_GET['success']) && $_GET['success'] == 1) {
+    $successMsg = "Evaluation submitted successfully!";
+} elseif (isset($_GET['error']) && $_GET['error'] == 'already_evaluated') {
+    $errorMsg = "You have already submitted an evaluation for this faculty.";
+}
+
 var_dump($_SESSION['role']);
 var_dump(isset($_SESSION['user']));
 
@@ -72,80 +81,47 @@ foreach ($criteriaMap as $row) {
             color: #f59e0b;
         }
     </style>
+    
 </head>
+<?php if (!empty($successMsg)): ?>
+    <div class="bg-green-100 text-green-800 px-4 py-2 rounded mb-4">
+        <?= htmlspecialchars($successMsg) ?>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($errorMsg)): ?>
+    <div class="bg-red-100 text-red-800 px-4 py-2 rounded mb-4">
+        <?= htmlspecialchars($errorMsg) ?>
+    </div>
+<?php endif; ?>
+
 <body class="bg-gray-100 flex">
 
 <?php include 'student_sidebar.php'; ?>
 
 <!-- Main Content -->
-<div class="ml-64 p-6 w-full">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
-        <h1 class="text-2xl font-bold mb-4">Faculty Evaluation</h1>
-
-        <?php if (empty($faculties)): ?>
-            <p class="text-gray-600">You have already evaluated all faculties. Thank you!</p>
-            <?php else: ?>
-    <form action="submit_evaluation.php" method="POST" id="evaluationForm">
-        <label class="block mb-2 font-semibold">Select Faculty to Evaluate:</label>
-        <select name="faculty_id" id="facultySelect" required class="mb-6 border rounded p-2 w-full">
-            <option value="">-- Select Faculty --</option>
-            <?php foreach ($faculties as $f): ?>
-                <option value="<?= $f['id'] ?>"><?= htmlspecialchars($f['full_name']) ?></option>
-            <?php endforeach; ?>
-        </select>
-
-        <!-- Evaluation Section: Hidden until a faculty is selected -->
-        <div id="evaluationSection" class="hidden">
-            <?php include 'evaluate_faculty.php'; ?>
-        </div>
-
-        <div id="submitButtonContainer" class="hidden mt-4">
-            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Submit Evaluation</button>
-        </div>
-    </form>
-
-    <script>
-        const facultySelect = document.getElementById('facultySelect');
-        const evaluationSection = document.getElementById('evaluationSection');
-        const submitButtonContainer = document.getElementById('submitButtonContainer');
-
-        facultySelect.addEventListener('change', () => {
-            const selected = facultySelect.value;
-            if (selected) {
-                evaluationSection.classList.remove('hidden');
-                submitButtonContainer.classList.remove('hidden');
-            } else {
-                evaluationSection.classList.add('hidden');
-                submitButtonContainer.classList.add('hidden');
-            }
-        });
-    </script>
-<?php endif; ?>
-
-    </div>
+     
+<div class="ml-64 p-6">
+    <h1 class="text-2xl font-bold mb-4">Your Evaluations</h1>
+    
+    <?php if (empty($evaluations)): ?>
+        <p class="text-gray-600">You haven't submitted any evaluations yet.</p>
+    <?php else: ?>
+        <?php foreach ($evaluations as $eval): ?>
+            <div class="bg-white shadow p-4 mb-4 rounded">
+                <h2 class="font-semibold"><?= htmlspecialchars($eval['faculty_name']) ?></h2>
+                <p class="text-sm text-gray-500 mb-2">Submitted: <?= date('F j, Y, g:i a', strtotime($eval['created_at'])) ?></p>
+                <?php if (!empty($eval['comment'])): ?>
+                    <p><strong>Your Comment:</strong> <?= htmlspecialchars($eval['comment']) ?></p>
+                <?php else: ?>
+                    <p class="text-gray-500 italic">No comment provided.</p>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
 </div>
 
-<script>
-    document.querySelectorAll('.star-rating').forEach(group => {
-        const stars = group.querySelectorAll('.fa-star');
-        const inputId = stars[0].getAttribute('data-input');
-        const input = document.getElementById(inputId);
-
-        stars.forEach(star => {
-            star.addEventListener('click', () => {
-                const rating = star.getAttribute('data-rating');
-                input.value = rating;
-
-                stars.forEach(s => {
-                    s.classList.remove('checked');
-                    if (s.getAttribute('data-rating') <= rating) {
-                        s.classList.add('checked');
-                    }
-                });
-            });
-        });
-    });
-</script>
+<!-- End of Main Content -->
 
 </body>
 </html>

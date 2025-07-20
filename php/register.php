@@ -40,25 +40,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $userId = $pdo->lastInsertId();
 
         if ($role === 'students') {
-            $studentId = $_POST['student_id'] ?? '';
-            $fullName = $_POST['full_name'] ?? '';
-            $course = $_POST['course'] ?? '';
-            $yearLevel = $_POST['year_level'] ?? '';
-            $section = $_POST['section'] ?? '';
+    $studentId = trim($_POST['student_id'] ?? '');
+    $fullName = trim($_POST['full_name'] ?? '');
+    $course = trim($_POST['course'] ?? '');
+    $yearLevel = trim($_POST['year_level'] ?? '');
+    $section = trim($_POST['section'] ?? '');
 
-            $stmt = $pdo->prepare("INSERT INTO students (user_id, student_id, full_name, course, year_level, section)
-                                   VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$userId, $studentId, $fullName, $course, $yearLevel, $section]);
+    if (!$studentId || !$fullName || !$course || !$yearLevel || !$section) {
+        $errors[] = 'Please fill in all student details.';
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO students (user_id, student_id, full_name, course, year_level, section)
+                               VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$userId, $studentId, $fullName, $course, $yearLevel, $section]);
+    }
+}
 
-        } elseif ($role === 'faculties') {
-            $fullName = $_POST['full_name'] ?? '';
-            $department = $_POST['department'] ?? '';
-            $position = $_POST['position'] ?? '';
+        if ($role === 'faculty') {
+    $fullName = trim($_POST['full_name'] ?? '');
+    $department = trim($_POST['department'] ?? '');
+    $position = trim($_POST['position'] ?? '');
 
-            $stmt = $pdo->prepare("INSERT INTO faculties (user_id, full_name, department, position)
-                                   VALUES (?, ?, ?, ?)");
-            $stmt->execute([$userId, $fullName, $department, $position]);
-        }
+    if (!$fullName || !$department || !$position) {
+        $errors[] = 'Please fill in all faculty details.';
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO faculties (user_id, full_name, department, position)
+                               VALUES (?, ?, ?, ?)");
+        $stmt->execute([$userId, $fullName, $department, $position]);
+    }
+}
 
         $_SESSION['success'] = 'Registration successful! Please log in.';
         header('Location: login.php');

@@ -1,54 +1,51 @@
 <?php
 session_start();
+var_dump($_SESSION);
+exit;
+
 require_once '../php/db.php';
 
-// Ensure user is logged in and is a student
-if (!isset($_SESSION['user']) || $_SESSION['role'] !== 'student') {
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'students') {
     header("Location: ../php/login.php");
     exit();
 }
 
-$faculty_id = $_POST['faculty_id'] ?? null;
-$criteria_data = $_POST['criteria'] ?? [];
 $student_id = $_SESSION['student_id'] ?? null;
+$faculty_id = $_POST['faculty_id'] ?? null;
+$criteria = $_POST['criteria'] ?? [];
 
-// Validate inputs
-if (!$faculty_id || !$student_id || empty($criteria_data)) {
-    echo "<script>alert('Invalid submission. Please complete the form.'); window.history.back();</script>";
-    exit();
+if (!$student_id || !$faculty_id || empty($criteria)) {
+    die("Missing data.");
 }
 
-// Check if this faculty was already evaluated
+// Prevent duplicate submission
 $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM evaluation_report WHERE student_id = ? AND faculty_id = ?");
 $checkStmt->execute([$student_id, $faculty_id]);
-
 if ($checkStmt->fetchColumn() > 0) {
-    echo "<script>alert('You have already evaluated this faculty.'); window.location.href='student_dashboard.php';</script>";
-    exit();
+    die("You have already evaluated this faculty.");
 }
+$comment = trim($_POST['comment'] ?? null);
 
-// Prepare insert statement
-$insertStmt = $pdo->prepare("
-    INSERT INTO evaluation_report (student_id, faculty_id, criteria_id, question_id, rating)
-    VALUES (:student_id, :faculty_id, :criteria_id, :question_id, :rating)
-");
+// Insert one row per question
+$insertStmt = $pdo->prepare("INSERT INTO evaluation_report 
+    (student_id, faculty_id, criteria_id, question_id, rating, comment, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, NOW())");
 
-// Insert each rating
-foreach ($criteria_data as $criteria_id => $questions) {
+foreach ($criteria as $criteria_id => $questions) {
     foreach ($questions as $question_id => $rating) {
-        if ($rating >= 1 && $rating <= 5) { // Optional: validate rating range
+        if ($rating >= 1 && $rating <= 5) {
             $insertStmt->execute([
-                'student_id'   => $student_id,
-                'faculty_id'   => $faculty_id,
-                'criteria_id'  => $criteria_id,
-                'question_id'  => $question_id,
-                'rating'       => $rating
+                $student_id,
+                $faculty_id,
+                $criteria_id,
+                $question_id,
+                $rating,
+                $comment // comment saved with each row
             ]);
         }
     }
 }
 
-// Success redirect
-header("Location: thank_you.php");
+
+header("Location: student_dashboard.php?success=1");
 exit();
-?>

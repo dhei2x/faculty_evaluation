@@ -11,7 +11,7 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
     if ($role === 'admin') {
         header("Location: admin_dashboard.php"); exit();
     } elseif ($role === 'faculty') {
-        header("Location: faculty_dashboard.php"); exit();
+        header("Location: ../faculty/faculty_dashboard.php"); exit();
     } elseif ($role === 'students') {
         header("Location: ../studentlog/student_dashboard.php"); exit();
     }
@@ -44,7 +44,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" ) {
             switch ($_SESSION['role']) {
                 case 'admin': header("Location: admin_dashboard.php"); exit();
                 case 'faculty': header("Location: faculty_dashboard.php"); exit();
-                // case 'students': header("Location: ../studentlog/student_dashboard.php"); exit();
+                case 'students': header("Location: ../studentlog/student_dashboard.php"); exit();
                 // default: $error = "Invalid user role."; break;
                 default: header("Location: ../studentlog/student_dashboard.php"); exit();
             }
