@@ -41,13 +41,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" ) {
             if (!empty($_POST['remember'])) {
                 setcookie("remember_user", $username, time() + (86400 * 30), "/");
             }
-            switch ($_SESSION['role']) {
-                case 'admin': header("Location: admin_dashboard.php"); exit();
-                case 'faculty': header("Location: faculty_dashboard.php"); exit();
-                case 'students': header("Location: ../studentlog/student_dashboard.php"); exit();
-                // default: $error = "Invalid user role."; break;
-                default: header("Location: ../studentlog/student_dashboard.php"); exit();
-            }
+         switch ($_SESSION['role']) {
+    case 'admin':
+        header("Location: admin_dashboard.php");
+        exit();
+
+    case 'faculty':
+        header("Location: faculty_dashboard.php");
+        exit();
+
+    case 'students':
+        // ✅ Fetch and store student_id
+        $stmt = $pdo->prepare("SELECT id FROM students WHERE user_id = ?");
+        $stmt->execute([$user['id']]);
+        $student = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($student) {
+            $_SESSION['student_id'] = $student['id'];
+        } else {
+            die("Student profile not found.");
+        }
+
+        header("Location: ../studentlog/student_dashboard.php");
+        exit();
+
+    default:
+        $error = "Invalid user role.";
+}
+
         } else {
             $error = "Invalid username or password.";
         }

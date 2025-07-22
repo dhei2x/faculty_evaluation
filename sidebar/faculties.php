@@ -1,10 +1,10 @@
-<?php
+<?php 
 session_start();
 require_once '../php/db.php';
 require_once '../php/auth.php';
 require_role('admin');
 
-// Fetch faculties
+// Fetch faculty data directly from faculties table
 $faculties = $pdo->query("SELECT * FROM faculties")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
@@ -16,10 +16,8 @@ $faculties = $pdo->query("SELECT * FROM faculties")->fetchAll(PDO::FETCH_ASSOC);
 </head>
 <body class="flex bg-gray-100 min-h-screen">
 
-  <!-- Sidebar -->
   <?php include '../php/admin_sidebar.php'; ?>
 
-  <!-- Main Content -->
   <div class="flex-1 p-6">
     <h1 class="text-3xl font-bold mb-6 text-gray-800">Manage Faculties</h1>
 
@@ -31,7 +29,7 @@ $faculties = $pdo->query("SELECT * FROM faculties")->fetchAll(PDO::FETCH_ASSOC);
       <table class="min-w-full table-auto border border-gray-200">
         <thead class="bg-gray-100">
           <tr>
-            <th class="px-4 py-2 border">User ID</th>
+            <th class="px-4 py-2 border">Faculty ID</th>
             <th class="px-4 py-2 border">Full Name</th>
             <th class="px-4 py-2 border">Department</th>
             <th class="px-4 py-2 border">Position</th>
@@ -42,14 +40,14 @@ $faculties = $pdo->query("SELECT * FROM faculties")->fetchAll(PDO::FETCH_ASSOC);
         <tbody>
           <?php foreach ($faculties as $faculty): ?>
             <tr class="text-center hover:bg-gray-50">
-              <td class="border px-4 py-2"><?= htmlspecialchars($faculty['user_id']) ?></td>
+              <td class="border px-4 py-2"><?= htmlspecialchars($faculty['faculty_id']) ?></td>
               <td class="border px-4 py-2"><?= htmlspecialchars($faculty['full_name']) ?></td>
               <td class="border px-4 py-2"><?= htmlspecialchars($faculty['department']) ?></td>
               <td class="border px-4 py-2"><?= htmlspecialchars($faculty['position']) ?></td>
               <td class="border px-4 py-2"><?= htmlspecialchars($faculty['created_at']) ?></td>
               <td class="border px-4 py-2 space-x-2">
-                <a href="edit_faculty.php?user_id=<?= $faculty['user_id'] ?>" class="text-blue-600 hover:underline">Edit</a>
-                <a href="delete_faculty.php?user_id=<?= $faculty['user_id'] ?>" class="text-red-600 hover:underline" onclick="return confirm('Delete this faculty?');">Delete</a>
+                <a href="edit_faculty.php?id=<?= $faculty['id'] ?>" class="text-blue-600 hover:underline">Edit</a>
+                <a href="delete_faculty.php?id=<?= $faculty['id'] ?>" class="text-red-600 hover:underline" onclick="return confirm('Are you sure?')">Delete</a>
               </td>
             </tr>
           <?php endforeach; ?>

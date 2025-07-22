@@ -1,8 +1,13 @@
 <?php
 session_start();
+require_once '../php/db.php';
+if ($_SESSION['role'] !== 'students') {
+    header("Location: ../php/login.php");
+    exit();
+}
+
 $successMsg = '';
 $errorMsg = '';
-require_once '../php/db.php';
 
 if (isset($_GET['success']) && $_GET['success'] == 1) {
     $successMsg = "Evaluation submitted successfully!";
@@ -10,58 +15,45 @@ if (isset($_GET['success']) && $_GET['success'] == 1) {
     $errorMsg = "You have already submitted an evaluation for this faculty.";
 }
 
-var_dump($_SESSION['role']);
-var_dump(isset($_SESSION['user']));
-
-if ($_SESSION['role'] !== 'students') {
-    header("Location: ../php/login.php");
-    exit();
-}
-
 $userID = $_SESSION['user_id'];
 
-
-$stmt = $pdo->prepare("SELECT student_id FROM students WHERE id = ?");
+// Get student ID from student table
+$stmt = $pdo->prepare("SELECT id FROM students WHERE user_id = ?");
 $stmt->execute([$userID]);
-$student_id = $stmt->fetch(PDO::FETCH_ASSOC);
+$student = $stmt->fetch(PDO::FETCH_ASSOC);
+$student_id = $student['id'] ?? null;
 
+// Fetch submitted evaluations with breakdown
+$sql = "
+SELECT 
+    f.full_name AS faculty_name,
+    ec.name AS criteria_name,
+    q.text AS question_text,
+    er.rating,
+    er.comment,
+    er.created_at
+FROM evaluation_report er
+JOIN faculties f ON er.faculty_id = f.id
+JOIN questions q ON er.question_id = q.id
+JOIN evaluation_criteria ec ON q.criteria_id = ec.id
+WHERE er.student_id = ?
+ORDER BY er.created_at DESC, f.full_name, ec.id, q.id
+";
+$stmt = $pdo->prepare($sql);
+$stmt->execute([$student_id]);
+$data = $stmt->fetchAll();
 
-
-
-
-
-// Fetch faculties not yet evaluated
-// $facultyStmt = $pdo->prepare("
-//     SELECT f.id, f.full_name, f.department
-//     FROM faculties f
-//     WHERE f.id NOT IN (
-//         SELECT faculty_id FROM evaluation_report WHERE student_id = ?
-//     )
-// ");
-$facultyStmt = $pdo->prepare("
-    SELECT f.id, f.full_name, f.department
-    FROM faculties f
-");
-$facultyStmt->execute();
-$faculties = $facultyStmt->fetchAll();
-
-
-//  ?????
-// Fetch criteria and questions
-// $criteriaStmt = $pdo->query("
-//     SELECT c.id AS criteria_id, c.name AS criteria_name, q.id AS question_id, q.text AS question_text
-//     FROM criteria c
-//     JOIN questions q ON q.criteria_id = c.id
-//     ORDER BY c.id, q.id
-// ");
-/// ????
-
-$criteriaMap = [];
-foreach ($criteriaMap as $row) {
-    $criteriaMap[$row['criteria_id']]['name'] = $row['criteria_name'];
-    $criteriaMap[$row['criteria_id']]['questions'][] = [
-        'id' => $row['question_id'],
-        'text' => $row['question_text']
+// Group data by faculty and submission time
+$evaluations = [];
+foreach ($data as $row) {
+    $key = $row['faculty_name'] . '|' . $row['created_at'];
+    $evaluations[$key]['faculty_name'] = $row['faculty_name'];
+    $evaluations[$key]['created_at'] = $row['created_at'];
+    $evaluations[$key]['comment'] = $row['comment'];
+    $evaluations[$key]['items'][] = [
+        'criteria' => $row['criteria_name'],
+        'question' => $row['question_text'],
+        'rating' => $row['rating']
     ];
 }
 ?>
@@ -69,59 +61,55 @@ foreach ($criteriaMap as $row) {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Student Dashboard - Evaluation</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-    <style>
-        .star-rating .fa-star {
-            color: #ccc;
-            cursor: pointer;
-        }
-        .star-rating .fa-star.checked {
-            color: #f59e0b;
-        }
-    </style>
-    
+    <title>Student Dashboard - Evaluations</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<?php if (!empty($successMsg)): ?>
-    <div class="bg-green-100 text-green-800 px-4 py-2 rounded mb-4">
-        <?= htmlspecialchars($successMsg) ?>
-    </div>
-<?php endif; ?>
-
-<?php if (!empty($errorMsg)): ?>
-    <div class="bg-red-100 text-red-800 px-4 py-2 rounded mb-4">
-        <?= htmlspecialchars($errorMsg) ?>
-    </div>
-<?php endif; ?>
-
 <body class="bg-gray-100 flex">
 
 <?php include 'student_sidebar.php'; ?>
 
 <!-- Main Content -->
-     
-<div class="ml-64 p-6">
-    <h1 class="text-2xl font-bold mb-4">Your Evaluations</h1>
-    
+<div class="ml-64 p-6 w-full">
+    <h1 class="text-2xl font-bold mb-6">Your Submitted Evaluations</h1>
+
+    <?php if (!empty($successMsg)): ?>
+        <div class="bg-green-100 text-green-800 px-4 py-2 rounded mb-4">
+            <?= htmlspecialchars($successMsg) ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if (!empty($errorMsg)): ?>
+        <div class="bg-red-100 text-red-800 px-4 py-2 rounded mb-4">
+            <?= htmlspecialchars($errorMsg) ?>
+        </div>
+    <?php endif; ?>
+
     <?php if (empty($evaluations)): ?>
-        <p class="text-gray-600">You haven't submitted any evaluations yet.</p>
+        <div class="text-gray-600">You haven't submitted any evaluations yet.</div>
     <?php else: ?>
         <?php foreach ($evaluations as $eval): ?>
-            <div class="bg-white shadow p-4 mb-4 rounded">
-                <h2 class="font-semibold"><?= htmlspecialchars($eval['faculty_name']) ?></h2>
-                <p class="text-sm text-gray-500 mb-2">Submitted: <?= date('F j, Y, g:i a', strtotime($eval['created_at'])) ?></p>
+            <div class="bg-white shadow p-5 mb-6 rounded-lg">
+                <h2 class="text-lg font-semibold text-blue-800"><?= htmlspecialchars($eval['faculty_name']) ?></h2>
+                <p class="text-sm text-gray-500 mb-2">Submitted on <?= date('F j, Y, g:i a', strtotime($eval['created_at'])) ?></p>
+
+                <div class="mb-3">
+                    <?php foreach ($eval['items'] as $item): ?>
+                        <div class="mb-2">
+                            <p class="text-gray-700"><strong><?= htmlspecialchars($item['criteria']) ?>:</strong> <?= htmlspecialchars($item['question']) ?></p>
+                            <p class="ml-4 text-yellow-600 font-semibold">Rating: <?= $item['rating'] ?>/5</p>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
                 <?php if (!empty($eval['comment'])): ?>
-                    <p><strong>Your Comment:</strong> <?= htmlspecialchars($eval['comment']) ?></p>
-                <?php else: ?>
-                    <p class="text-gray-500 italic">No comment provided.</p>
+                    <div class="bg-gray-50 p-3 border rounded text-sm text-gray-800">
+                        <strong>Comment:</strong> <?= htmlspecialchars($eval['comment']) ?>
+                    </div>
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
-
-<!-- End of Main Content -->
 
 </body>
 </html>
