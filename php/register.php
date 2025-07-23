@@ -55,7 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-        if ($role === 'faculty') {
+       if ($role === 'faculties') {
+
     $fullName = trim($_POST['full_name'] ?? '');
     $department = trim($_POST['department'] ?? '');
     $position = trim($_POST['position'] ?? '');

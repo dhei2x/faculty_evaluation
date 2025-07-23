@@ -1,26 +1,21 @@
 <?php
-ob_start();
 session_start();
 include 'db.php';
 
 $error = "";
 
-// Already logged-in user
-if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
-    $role = strtolower($_SESSION['role']);
+if (isset($_SESSION['role'])) {
+    $role = $_SESSION['role'];
     if ($role === 'admin') {
-        header("Location: admin_dashboard.php"); exit();
+        header("Location: admin_dashboard.php"); exit;
     } elseif ($role === 'faculty') {
-        header("Location: ../faculty/faculty_dashboard.php"); exit();
+        header("Location: ../faculty/faculty_dashboard.php"); exit;
     } elseif ($role === 'students') {
-        header("Location: ../studentlog/student_dashboard.php"); exit();
+        header("Location: ../studentlog/student_dashboard.php"); exit;
     }
 }
 
-// Process login
-// if ($_SERVER["REQUEST_METHOD"] === "POST" && ) {
-if ($_SERVER["REQUEST_METHOD"] === "POST" ) {
-
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
@@ -28,46 +23,50 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" ) {
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        
 
-
-        // if ($user && password_verify($password, $user['password'])) {
-          if ($user && password_verify($password, $user['password'])) {
-          var_dump($user);
-            $_SESSION['user_id'] = $user['id'];
+        if ($user && password_verify($password, $user['password'])) {
+            $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = strtolower($user['role']);
 
             if (!empty($_POST['remember'])) {
                 setcookie("remember_user", $username, time() + (86400 * 30), "/");
             }
-         switch ($_SESSION['role']) {
-    case 'admin':
-        header("Location: admin_dashboard.php");
+
+            switch ($_SESSION['role']) {
+                case 'admin':
+                    header("Location: admin_dashboard.php"); exit;
+case 'faculty':
+    $stmt = $pdo->prepare("SELECT id, full_name FROM faculties WHERE id = ?");
+    $stmt->execute([$user['id']]);
+    $faculty = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($faculty) {
+        $_SESSION['faculty'] = [
+            'id' => $faculty['id'],
+            'full_name' => $faculty['full_name']
+        ];
+        header("Location: ../faculty/faculty_dashboard.php");
         exit();
+    } else {
+        die("Faculty profile not found.");
+    }
 
-    case 'faculty':
-        header("Location: faculty_dashboard.php");
-        exit();
+                case 'students':
+                    $stmt = $pdo->prepare("SELECT id FROM students WHERE student_id = ?");
+                    $stmt->execute([$user['username']]);
+                    $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    case 'students':
-        // ✅ Fetch and store student_id
-        $stmt = $pdo->prepare("SELECT id FROM students WHERE user_id = ?");
-        $stmt->execute([$user['id']]);
-        $student = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($student) {
-            $_SESSION['student_id'] = $student['id'];
-        } else {
-            die("Student profile not found.");
-        }
+                    if ($student) {
+                        $_SESSION['student_id'] = $student['id'];
+                        header("Location: ../studentlog/student_dashboard.php");
+                        exit;
+                    } else {
+                        die("Student profile not found.");
+                    }
 
-        header("Location: ../studentlog/student_dashboard.php");
-        exit();
-
-    default:
-        $error = "Invalid user role.";
-}
-
+                default:
+                    $error = "Invalid role.";
+            }
         } else {
             $error = "Invalid username or password.";
         }
@@ -76,6 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" ) {
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -89,7 +89,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" ) {
       background: url('gccbg.jpg') no-repeat center center fixed;
       background-size: cover;
     }
-
     .overlay {
       position: fixed;
       inset: 0;
@@ -97,12 +96,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" ) {
       backdrop-filter: blur(5px);
       z-index: -1;
     }
-
     .login-card {
       background-color: rgba(255, 255, 255, 0.96);
       border-radius: 1rem;
     }
-
     .logo {
       width: 80px;
       margin: 0 auto;
@@ -149,7 +146,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" ) {
         </div>
       </form>
 
-      <!-- ✅ Added Reset Password Section -->
       <div class="text-center mt-4 space-y-1 text-sm">
         <p class="text-gray-600">Forgot your password?</p>
         <a href="reset_password.php" class="text-blue-500 hover:underline">Click here to reset it</a>

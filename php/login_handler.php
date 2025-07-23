@@ -20,7 +20,7 @@ try {
         } elseif ($user['role'] === 'students') {
             header("Location: ../studentlog/student_dashboard.php");
         } elseif ($user['role'] === 'faculty') {
-            header("Location: faculty_dashboard.php");
+            header("Location: ../faculty/faculty_dashboard.php");
         } else {
             header("Location: login.php");
         }
