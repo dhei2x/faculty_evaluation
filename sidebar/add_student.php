@@ -4,28 +4,44 @@ require_once '../php/db.php';
 require_once '../php/auth.php';
 require_role('admin');
 
-// Handle form submission
+$errors = [];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $student_id = $_POST['student_id'] ?? '';
-    $full_name = $_POST['full_name'] ?? '';
-    $course = $_POST['course'] ?? '';
-    $year_level = max(1, (int)($_POST['year_level'] ?? 1));
-    $section = $_POST['section'] ?? '';
-    $username = $_POST['username'] ?? '';
-    $email = $_POST['email'] ?? '';
-    $password = isset($_POST['password']) ? password_hash($_POST['password'], PASSWORD_DEFAULT) : '';
+    $student_id = trim($_POST['student_id']);
+    $full_name  = trim($_POST['full_name']);
+    $course     = trim($_POST['course']);
+    $year_level = (int)($_POST['year_level'] ?? 1);
+    $section    = trim($_POST['section']);
+    $username   = trim($_POST['username']);
+    $email      = trim($_POST['email']);
+    $password   = $_POST['password'];
 
-    // Create user
-    $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password, role, created_at) VALUES (?, ?, ?, 'student', NOW())");
-    $stmtUser->execute([$username, $email, $password]);
-    $user_id = $pdo->lastInsertId();
+    // Check duplicates
+    $check = $pdo->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
+    $check->execute([$username, $email]);
+    if ($check->fetch()) {
+        $errors[] = "Username or Email already exists.";
+    }
 
-    // Create student
-    $stmtStudent = $pdo->prepare("INSERT INTO students (user_id, student_id, full_name, course, year_level, section) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmtStudent->execute([$user_id, $student_id, $full_name, $course, $year_level, $section]);
+    if (empty($errors)) {
+        try {
+            $pdo->beginTransaction();
 
-    header("Location: students.php");
-    exit;
+            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password, role, created_at) VALUES (?, ?, ?, 'students', NOW())");
+            $stmtUser->execute([$username, $email, password_hash($password, PASSWORD_DEFAULT)]);
+            $user_id = $pdo->lastInsertId();
+
+            $stmtStudent = $pdo->prepare("INSERT INTO students (user_id, student_id, full_name, course, year_level, section) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmtStudent->execute([$user_id, $student_id, $full_name, $course, $year_level, $section]);
+
+            $pdo->commit();
+            header("Location: students.php");
+            exit;
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $errors[] = "Error: " . $e->getMessage();
+        }
+    }
 }
 ?>
 
@@ -35,6 +51,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="UTF-8">
   <title>Add Student</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px;
+            opacity: 0.09;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body class="p-6 bg-gray-100">
   <div class="max-w-xl mx-auto bg-white p-6 rounded shadow">

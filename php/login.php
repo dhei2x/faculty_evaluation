@@ -1,82 +1,73 @@
 <?php
 session_start();
-include 'db.php';
+require_once 'db.php';
 
 $error = "";
 
-if (isset($_SESSION['role'])) {
-    $role = $_SESSION['role'];
-    if ($role === 'admin') {
-        header("Location: admin_dashboard.php"); exit;
-    } elseif ($role === 'faculty') {
-        header("Location: ../faculty/faculty_dashboard.php"); exit;
-    } elseif ($role === 'students') {
-        header("Location: ../studentlog/student_dashboard.php"); exit;
-    }
-}
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if ($username && $password) {
+    if ($username === '' || $password === '') {
+        $error = "Username and password are required.";
+    } else {
+        // 1. Check in users table
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['password'])) {
+            $_SESSION['role'] = $user['role'];
             $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = strtolower($user['role']);
 
-            if (!empty($_POST['remember'])) {
-                setcookie("remember_user", $username, time() + (86400 * 30), "/");
-            }
+            if ($user['role'] === 'students') {
+                // Student login: match student_id with username
+                $stmt = $pdo->prepare("SELECT * FROM students WHERE student_id = ?");
+                $stmt->execute([$username]);
+                $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            switch ($_SESSION['role']) {
-                case 'admin':
-                    header("Location: admin_dashboard.php"); exit;
-case 'faculty':
-    $stmt = $pdo->prepare("SELECT id, full_name FROM faculties WHERE id = ?");
-    $stmt->execute([$user['id']]);
-    $faculty = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($student) {
+                    $_SESSION['student_id'] = $student['id']; // PK
+                    $_SESSION['student_name'] = $student['full_name'];
+                    $_SESSION['welcome'] = "Welcome, " . $student['full_name'] . "!";
 
-    if ($faculty) {
-        $_SESSION['faculty'] = [
-            'id' => $faculty['id'],
-            'full_name' => $faculty['full_name']
-        ];
-        header("Location: ../faculty/faculty_dashboard.php");
-        exit();
-    } else {
-        die("Faculty profile not found.");
-    }
+                    header("Location: ../studentlog/student_dashboard.php");
+                    exit;
+                } else {
+                    $error = "Student record not found for this account.";
+                }
 
-                case 'students':
-                    $stmt = $pdo->prepare("SELECT id FROM students WHERE student_id = ?");
-                    $stmt->execute([$user['username']]);
-                    $student = $stmt->fetch(PDO::FETCH_ASSOC);
+            } elseif ($user['role'] === 'faculty') {
+                // Faculty login: match faculty_id with username
+                $stmt = $pdo->prepare("SELECT * FROM faculties WHERE faculty_id = ?");
+                $stmt->execute([$username]);
+                $faculty = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                    if ($student) {
-                        $_SESSION['student_id'] = $student['id'];
-                        header("Location: ../studentlog/student_dashboard.php");
-                        exit;
-                    } else {
-                        die("Student profile not found.");
-                    }
+                if ($faculty) {
+                    $_SESSION['faculty_id'] = $faculty['id']; // PK
+                    $_SESSION['faculty_name'] = $faculty['full_name'];
+                    $_SESSION['welcome'] = "Welcome, Prof. " . $faculty['full_name'] . "!";
 
-                default:
-                    $error = "Invalid role.";
+                    header("Location: ../faculty/faculty_dashboard.php");
+                    exit;
+                } else {
+                    $error = "Faculty record not found for this account.";
+                }
+
+            } elseif ($user['role'] === 'admin') {
+                $_SESSION['welcome'] = "Welcome, " . $user['username'] . "!";
+
+                header("Location: ../php/admin_dashboard.php");
+                exit;
+            } else {
+                $error = "User has an unknown role.";
             }
         } else {
             $error = "Invalid username or password.";
         }
-    } else {
-        $error = "Please fill in both fields.";
     }
 }
 ?>
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,7 +97,7 @@ case 'faculty':
     }
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
   <div class="overlay"></div>
 
   <div class="w-full max-w-md">
@@ -117,14 +108,13 @@ case 'faculty':
       </div>
 
       <?php if (!empty($error)): ?>
-        <p class="text-red-600 text-center mb-4"><?php echo htmlspecialchars($error); ?></p>
+        <p class="text-red-600 text-center mb-4"><?= htmlspecialchars($error) ?></p>
       <?php endif; ?>
 
       <form method="POST" class="space-y-4">
         <div class="relative">
           <input type="text" name="username" placeholder="Username" required
-            class="pl-10 pr-4 h-12 w-full border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-            value="<?php echo isset($_COOKIE['remember_user']) ? htmlspecialchars($_COOKIE['remember_user']) : ''; ?>" />
+            class="pl-10 pr-4 h-12 w-full border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"/>
           <span class="absolute left-3 top-3 text-gray-400">👤</span>
         </div>
 
@@ -136,8 +126,7 @@ case 'faculty':
 
         <div class="flex items-center justify-between text-sm">
           <label class="flex items-center space-x-2">
-            <input type="checkbox" name="remember" class="h-4 w-4"
-              <?php echo isset($_COOKIE['remember_user']) ? 'checked' : ''; ?>>
+            <input type="checkbox" name="remember" class="h-4 w-4">
             <span>Remember me</span>
           </label>
           <button type="submit" name="login" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded">
@@ -148,7 +137,7 @@ case 'faculty':
 
       <div class="text-center mt-4 space-y-1 text-sm">
         <p class="text-gray-600">Forgot your password?</p>
-        <a href="reset_password.php" class="text-blue-500 hover:underline">Click here to reset it</a>
+      <a href="forgot_password.php" class="text-blue-500 hover:underline">Click here to reset it</a>
       </div>
 
       <div class="mt-6 text-center text-sm">

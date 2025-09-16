@@ -12,76 +12,100 @@ if (isset($_GET['reviewed'])) {
 try {
     $studentCount = $pdo->query("SELECT COUNT(*) FROM students")->fetchColumn();
     $facultyCount = $pdo->query("SELECT COUNT(*) FROM faculties")->fetchColumn();
-    $classCount = $pdo->query("SELECT COUNT(*) FROM classes")->fetchColumn();
+    $classCount   = $pdo->query("SELECT COUNT(*) FROM classes")->fetchColumn();
     $subjectCount = $pdo->query("SELECT COUNT(*) FROM subjects")->fetchColumn();
 } catch (PDOException $e) {
     die("Database error: " . $e->getMessage());
 }
 
-// Detect suspicious evaluations
+// Detect suspicious evaluations (Z-score + Tukey)
 $flaggedCount = 0;
 try {
     $sql = "
-        SELECT 
-            AVG(er.rating) AS avg_rating,
-            GROUP_CONCAT(DISTINCT er.comment SEPARATOR ' | ') AS comment
+        SELECT AVG(er.rating) AS avg_rating, GROUP_CONCAT(DISTINCT er.comment SEPARATOR ' | ') AS comment
         FROM evaluation_report er
         GROUP BY er.student_id, er.faculty_id
     ";
-
     $data = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
     $ratings = array_column($data, 'avg_rating');
-    $mean = array_sum($ratings) / count($ratings);
-    $stddev = sqrt(array_sum(array_map(fn($r) => pow($r - $mean, 2), $ratings)) / count($ratings));
+    sort($ratings);
 
-    $keywords = ['lazy', 'rude', 'unfair', 'incompetent', 'bad', 'terrible', 'unhelpful', 'strict'];
+    if (count($ratings) > 0) {
+        $mean   = array_sum($ratings) / count($ratings);
+        $stddev = sqrt(array_sum(array_map(fn($r) => pow($r - $mean, 2), $ratings)) / count($ratings));
 
-    foreach ($data as $row) {
-        $z = ($stddev > 0) ? ($row['avg_rating'] - $mean) / $stddev : 0;
+        // Quartiles for Tukey
+        $count = count($ratings);
+        $q1Index = floor(($count + 1) / 4);
+        $q3Index = floor((3 * ($count + 1)) / 4);
+        $q1 = $ratings[$q1Index] ?? $ratings[0];
+        $q3 = $ratings[$q3Index] ?? $ratings[$count - 1];
+        $iqr = $q3 - $q1;
+        $lowerBound = $q1 - 1.5 * $iqr;
+        $upperBound = $q3 + 1.5 * $iqr;
 
-        foreach ($keywords as $kw) {
-            if ($z > 1 && stripos($row['comment'], $kw) !== false) {
-                $flaggedCount++;
-                break;
+        $keywords = ['lazy', 'rude', 'unfair', 'retard', 'incompetent', 'bad', 'terrible', 'unhelpful', 'strict'];
+
+        foreach ($data as $row) {
+            $z = ($stddev > 0) ? ($row['avg_rating'] - $mean) / $stddev : 0;
+
+            foreach ($keywords as $kw) {
+                if (!empty($row['comment']) &&
+                    (stripos($row['comment'], $kw) !== false) &&
+                    ($z > 1 || $row['avg_rating'] < $lowerBound || $row['avg_rating'] > $upperBound)) {
+                    $flaggedCount++;
+                    break;
+                }
             }
         }
     }
-
-    // ✅ Reset review flag if new suspicious evaluations are found
-    if ($flaggedCount > 0) {
-        $_SESSION['reviewed_flagged'] = false;
-    }
-
 } catch (Exception $e) {
     $flaggedCount = 0;
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Admin Dashboard - Faculty Evaluation System</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            position: relative;
+            background-color: #f3f4f6;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px;
+            opacity: 0.09;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .content { position: relative; z-index: 1; }
+    </style>
 </head>
-<body class="bg-gray-100 font-sans">
-<div class="flex">
-    <!-- Sidebar -->
+<body class="font-sans bg-gray-100">
+<div class="flex content">
     <?php include 'admin_sidebar.php'; ?>
 
-    <!-- Main Content -->
     <div class="flex-1 p-6">
-        <h1 class="text-3xl font-bold mb-6">Welcome, Admin</h1>
-
         <!-- Suspicious Evaluation Notification -->
-      <?php if ($flaggedCount > 0 && empty($_SESSION['reviewed_flagged'])): ?>
-    <div class="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-        ⚠️ <strong><?= $flaggedCount ?></strong> suspicious evaluations detected.
-        <a href="../sidebar/flagged_evaluations.php?reviewed=1" class="underline text-blue-700 hover:text-blue-900 ml-2">Review Now</a>
-    </div>
-<?php endif; ?>
-
+        <?php if ($flaggedCount > 0 && empty($_SESSION['reviewed_flagged'])): ?>
+        <div class="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            ⚠️ <strong><?= $flaggedCount ?></strong> suspicious evaluations detected.
+            <div class="mt-2">
+                <a href="../sidebar/flagged_evaluations.php?reviewed=1" 
+                   class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded">
+                   Review Now
+                </a>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Dashboard Metrics -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">

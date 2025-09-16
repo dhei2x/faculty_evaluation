@@ -52,13 +52,42 @@ while ($row = $criteriaStmt->fetch(PDO::FETCH_ASSOC)) {
     <meta charset="UTF-8">
     <title>Faculty Evaluation</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px; /* adjust size */
+            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
+            pointer-events: none; /* so it won’t block clicks */
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
 <div class="min-h-screen p-8">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
         <div class="flex justify-between items-center mb-4">
             <h1 class="text-2xl font-bold">Faculty Evaluation</h1>
-            <a href="student_dashboard.php" class="text-blue-600 hover:underline text-sm">← Back to Dashboard</a>
+               <a href="../studentlog/student_dashboard.php" class="inline-block mb-4 bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800">
+        ← Back to Dashboard
+    </a>
         </div>
         <p class="text-sm text-gray-600 mb-4">Academic Year: <?= htmlspecialchars($activeAY['year'] . ' - ' . $activeAY['semester']) ?></p>
 

@@ -2,17 +2,20 @@
 session_start();
 require_once '../php/db.php';
 
-if (!isset($_SESSION['faculty'])) {
-    session_destroy();
+// 🔒 Faculty session check
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'faculty' || empty($_SESSION['faculty_id'])) {
     header("Location: ../php/login.php");
-    exit();
+    exit;
 }
 
-$faculty_id = $_SESSION['faculty']['id'];
+$facultyId   = $_SESSION['faculty_id'];   // numeric PK
+$facultyName = $_SESSION['faculty_name'] ?? 'faculty';
 
-// Fetch summary
+
+// 📊 Evaluation summary
 $summaryStmt = $pdo->prepare("
-    SELECT ay.year, ay.semester, ec.name AS criteria_name, ROUND(AVG(er.rating), 2) AS avg_rating, COUNT(er.id) AS total
+    SELECT ay.year, ay.semester, ec.name AS criteria_name,
+           ROUND(AVG(er.rating), 2) AS avg_rating, COUNT(er.id) AS total
     FROM evaluation_report er
     JOIN questions q ON er.question_id = q.id
     JOIN evaluation_criteria ec ON q.criteria_id = ec.id
@@ -21,10 +24,10 @@ $summaryStmt = $pdo->prepare("
     GROUP BY ay.id, ec.id
     ORDER BY ay.year DESC, ay.semester
 ");
-$summaryStmt->execute([$faculty_id]);
-$summaryData = $summaryStmt->fetchAll();
+$summaryStmt->execute([$facultyId]);
+$summaryData = $summaryStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch comments
+// 💬 Student comments
 $commentsStmt = $pdo->prepare("
     SELECT ay.year, ay.semester, er.comment
     FROM evaluation_report er
@@ -32,10 +35,10 @@ $commentsStmt = $pdo->prepare("
     WHERE er.faculty_id = ? AND er.comment IS NOT NULL AND er.comment != ''
     ORDER BY ay.year DESC, ay.semester
 ");
-$commentsStmt->execute([$faculty_id]);
+$commentsStmt->execute([$facultyId]);
 $commentsData = $commentsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Group comments
+// Group comments by year/semester
 $commentsGrouped = [];
 foreach ($commentsData as $row) {
     $key = $row['year'] . ' - ' . $row['semester'];
@@ -43,76 +46,108 @@ foreach ($commentsData as $row) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
     <title>Faculty Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-</head>
-<body class="bg-gray-100 text-gray-800 flex">
-    <!-- Sidebar -->
-    <?php include 'faculty_sidebar.php'; ?>
 
-    <!-- Main content -->
-    <main class="flex-1 p-8 space-y-12">
-        <section>
-            <h1 class="text-3xl font-bold mb-6 text-green-700">Evaluation Summary</h1>
+<style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
 
-            <?php if (empty($summaryData)): ?>
-                <p class="text-gray-500">No evaluation data available yet.</p>
-            <?php else: ?>
-                <?php
-                $grouped = [];
-                foreach ($summaryData as $row) {
-                    $grouped[$row['year'] . ' - ' . $row['semester']][] = $row;
-                }
-                ?>
-                <div class="space-y-6">
-                    <?php foreach ($grouped as $period => $items): ?>
-                        <div class="bg-white rounded-xl shadow-md p-6">
-                            <h2 class="text-xl font-semibold text-green-600 mb-4"><?= htmlspecialchars($period) ?></h2>
-                            <table class="w-full table-auto border text-sm">
-                                <thead class="bg-gray-100 text-left">
-                                    <tr>
-                                        <th class="border px-3 py-2">Criteria</th>
-                                        <th class="border px-3 py-2">Average Rating</th>
-                                        <th class="border px-3 py-2"># Responses</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($items as $r): ?>
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="border px-3 py-2"><?= htmlspecialchars($r['criteria_name']) ?></td>
-                                            <td class="border px-3 py-2"><?= $r['avg_rating'] ?></td>
-                                            <td class="border px-3 py-2"><?= $r['total'] ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px;
+            opacity: 0.09;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style></head>
+<body class="bg-gray-100 flex">
+
+<?php include 'faculty_sidebar.php'; ?>
+
+<main class="flex-1 p-8 space-y-12">
+ <?php if (!empty($_SESSION['welcome'])): ?>
+    <div id="welcomeToast" class="fixed top-4 right-4 bg-blue-200 text-white px-4 py-2 rounded shadow-lg z-50">
+        <?= htmlspecialchars($_SESSION['welcome']) ?>
+    </div>
+    <script>
+        setTimeout(() => {
+            const toast = document.getElementById('welcomeToast');
+            if (toast) toast.style.display = 'none';
+        }, 2000); // hide after 2 seconds
+    </script>
+    <?php unset($_SESSION['welcome']); ?>
+<?php endif; ?>
+
+
+    <h2 class="text-2xl font-semibold mb-4">Evaluation Summary</h2>
+
+    <?php if (empty($summaryData)): ?>
+        <p>No evaluation data available yet.</p>
+    <?php else: ?>
+        <?php
+        $grouped = [];
+        foreach ($summaryData as $row) {
+            $grouped[$row['year'] . ' - ' . $row['semester']][] = $row;
+        }
+        ?>
+        <?php foreach ($grouped as $period => $items): ?>
+            <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                <h3 class="text-blue-700 font-semibold mb-4"><?= htmlspecialchars($period) ?></h3>
+                <table class="w-full table-auto border text-sm">
+                    <thead class="bg-gray-100 text-left">
+                        <tr>
+                            <th class="border px-3 py-2">Criteria</th>
+                            <th class="border px-3 py-2">Average Rating</th>
+                            <th class="border px-3 py-2">Responses</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($items as $r): ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="border px-3 py-2"><?= htmlspecialchars($r['criteria_name']) ?></td>
+                                <td class="border px-3 py-2"><?= $r['avg_rating'] ?></td>
+                                <td class="border px-3 py-2"><?= $r['total'] ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+
+    <h2 class="text-2xl font-bold mb-4">Student Comments</h2>
+    <?php if (empty($commentsGrouped)): ?>
+        <p>No comments yet.</p>
+    <?php else: ?>
+        <?php foreach ($commentsGrouped as $period => $comments): ?>
+            <div class="bg-white rounded-xl shadow p-5 mb-6">
+                <h3 class="font-semibold text-blue-700 mb-3"><?= htmlspecialchars($period) ?></h3>
+                <ul class="list-disc pl-6 space-y-1">
+                    <?php foreach ($comments as $comment): ?>
+                        <li><?= htmlspecialchars($comment) ?></li>
                     <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-        </section>
-
-        <!-- Comments Section -->
-        <section>
-            <h2 class="text-2xl font-bold text-green-700 mb-4">Student Comments</h2>
-            <?php if (empty($commentsGrouped)): ?>
-                <p class="text-gray-500">No comments yet.</p>
-            <?php else: ?>
-                <?php foreach ($commentsGrouped as $period => $comments): ?>
-                    <div class="mb-6 bg-white rounded-xl shadow p-5">
-                        <h3 class="font-semibold text-lg text-blue-700 mb-3"><?= htmlspecialchars($period) ?></h3>
-                        <ul class="list-disc pl-6 space-y-1 text-gray-700">
-                            <?php foreach ($comments as $comment): ?>
-                                <li><?= htmlspecialchars($comment) ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </section>
-    </main>
+                </ul>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</main>
 </body>
 </html>

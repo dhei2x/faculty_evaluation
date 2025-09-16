@@ -17,7 +17,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("DELETE FROM evaluation_criteria WHERE id = :id");
         $stmt->execute(['id' => $_POST['id']]);
     }
-    header("Location: criteria.php"); exit();
+
+    // ✅ FIXED: Redirect to the correct filename
+    header("Location: evaluation_criteria.php");
+    exit();
 }
 
 $criteria = $pdo->query("SELECT * FROM evaluation_criteria ORDER BY id")->fetchAll();
@@ -28,6 +31,33 @@ $criteria = $pdo->query("SELECT * FROM evaluation_criteria ORDER BY id")->fetchA
 <head>
     <title>Evaluation Criteria</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px; /* adjust size */
+            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
+            pointer-events: none; /* so it won’t block clicks */
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 p-6">
 <div class="max-w-3xl mx-auto bg-white p-6 rounded shadow">
@@ -39,12 +69,14 @@ $criteria = $pdo->query("SELECT * FROM evaluation_criteria ORDER BY id")->fetchA
         </a>
     </div>
 
+    <!-- Add Form -->
     <form method="POST" class="mb-6">
         <input type="hidden" name="action" value="add">
         <input type="text" name="name" required class="border p-2 rounded w-full" placeholder="Enter new criteria name">
         <button class="bg-blue-600 text-white mt-2 px-4 py-2 rounded">Add</button>
     </form>
 
+    <!-- List -->
     <ul>
         <?php foreach ($criteria as $c): ?>
             <li class="border-b py-2 flex justify-between items-center">

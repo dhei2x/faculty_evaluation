@@ -4,15 +4,19 @@ require_once '../php/db.php';
 require_once '../php/auth.php';
 require_role('admin');
 
-// Check if ID is present
 if (!isset($_GET['id'])) {
     header("Location: users.php");
     exit();
 }
+$id = (int) $_GET['id'];
 
-$id = $_GET['id'];
+// Prevent editing super admin
+if ($id === 1) {
+    echo "<div style='padding:20px; color:red; font-weight:bold;'>⚠️ You cannot edit the Super Admin account.</div>";
+    echo "<a href='users.php' style='color:blue; text-decoration:underline;'>Back to Users</a>";
+    exit();
+}
 
-// Fetch the user to edit
 $stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id");
 $stmt->execute(['id' => $id]);
 $user = $stmt->fetch();
@@ -22,54 +26,75 @@ if (!$user) {
     exit();
 }
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $username = trim($_POST['username']);
-  $role = $_POST['role'];
-  $password = $_POST['password'];
+    $username = trim($_POST['username']);
+    $role = $_POST['role'];
+    $password = $_POST['password'];
 
-  // ✅ Check for duplicate username (excluding the current user)
-  $check = $pdo->prepare("SELECT id FROM users WHERE username = :username AND id != :id");
-  $check->execute(['username' => $username, 'id' => $id]);
-  if ($check->fetch()) {
-      echo "Username already taken.";
-      exit();
-  }
+    $check = $pdo->prepare("SELECT id FROM users WHERE username = :username AND id != :id");
+    $check->execute(['username' => $username, 'id' => $id]);
+    if ($check->fetch()) {
+        echo "Username already taken.";
+        exit();
+    }
 
-  if (!empty($password)) {
-      // Update with new password
-      $stmt = $pdo->prepare("UPDATE users SET username = :username, role = :role, password = :password WHERE id = :id");
-      $stmt->execute([
-          'username' => $username,
-          'role' => $role,
-          'password' => password_hash($password, PASSWORD_DEFAULT),
-          'id' => $id
-      ]);
-  } else {
-      // Update without changing password
-      $stmt = $pdo->prepare("UPDATE users SET username = :username, role = :role WHERE id = :id");
-      $stmt->execute([
-          'username' => $username,
-          'role' => $role,
-          'id' => $id
-      ]);
-  }
+    if (!empty($password)) {
+        $stmt = $pdo->prepare("UPDATE users SET username = :username, role = :role, password = :password WHERE id = :id");
+        $stmt->execute([
+            'username' => $username,
+            'role' => $role,
+            'password' => password_hash($password, PASSWORD_DEFAULT),
+            'id' => $id
+        ]);
+    } else {
+        $stmt = $pdo->prepare("UPDATE users SET username = :username, role = :role WHERE id = :id");
+        $stmt->execute([
+            'username' => $username,
+            'role' => $role,
+            'id' => $id
+        ]);
+    }
 
-  header("Location: users.php");
-  exit();
+    header("Location: users.php");
+    exit();
 }
-
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Edit User</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+ <style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px; /* adjust size */
+            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
+            pointer-events: none; /* so it won’t block clicks */
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 p-6 min-h-screen">
-  <div class="max-w-xl mx-auto bg-white p-6 rounded shadow">
+<body class="bg-gray-100 min-h-screen p-6">
+  <div class="max-w-xl mx-auto p-6 rounded shadow content">
     <h1 class="text-2xl font-bold mb-4">Edit User</h1>
     <form method="POST" class="space-y-4">
       <div>
@@ -84,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label class="block text-sm font-medium text-gray-700">Role</label>
         <select name="role" required class="mt-1 block w-full border border-gray-300 rounded p-2">
           <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
-          <option value="faculty" <?= $user['role'] === 'faculty' ? 'selected' : '' ?>>Faculties</option>
+          <option value="faculty" <?= $user['role'] === 'faculty' ? 'selected' : '' ?>>Faculty</option>
           <option value="students" <?= $user['role'] === 'students' ? 'selected' : '' ?>>Students</option>
         </select>
       </div>

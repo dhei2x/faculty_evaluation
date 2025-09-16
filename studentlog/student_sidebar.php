@@ -1,4 +1,4 @@
-<div class="w-64 bg-white h-screen shadow-md p-6 fixed hidden md:block">
+<div class="w-64 bg-blue-100 h-screen shadow-md p-6 fixed hidden md:block">
     <h2 class="text-xl font-bold mb-6">Student Panel</h2>
     <nav class="space-y-4">
         <a href="student_dashboard.php" class="flex items-center text-gray-700 hover:text-blue-600">

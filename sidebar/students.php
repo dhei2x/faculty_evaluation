@@ -13,6 +13,33 @@ $students = $pdo->query("SELECT * FROM students")->fetchAll(PDO::FETCH_ASSOC);
   <meta charset="UTF-8">
   <title>Manage Students</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px; /* adjust size */
+            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
+            pointer-events: none; /* so it won’t block clicks */
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body class="flex bg-gray-50 min-h-screen">
 

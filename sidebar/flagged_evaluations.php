@@ -4,26 +4,40 @@ require_once '../php/db.php';
 require_once '../php/auth.php';
 require_role('admin');
 
-// Fetch evaluations grouped by student + faculty
+// ✅ Mark reviewed
+$showToast = false;
+if (isset($_GET['reviewed']) && $_GET['reviewed'] == 1) {
+    $_SESSION['reviewed_flagged'] = true;
+    $showToast = true;
+}
+
+// Fetch evaluations
 $sql = "
-    SELECT 
-        er.student_id,
-        er.faculty_id,
-        f.full_name,
-        AVG(er.rating) AS avg_rating,
-        GROUP_CONCAT(DISTINCT er.comment SEPARATOR ' | ') AS comment
+    SELECT er.student_id, er.faculty_id, f.full_name,
+           AVG(er.rating) AS avg_rating,
+           GROUP_CONCAT(DISTINCT er.comment SEPARATOR ' | ') AS comment
     FROM evaluation_report er
     JOIN faculties f ON er.faculty_id = f.id
     GROUP BY er.student_id, er.faculty_id
 ";
 $data = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
-// Z-score detection
+// Z-Score + Tukey Detection
 $ratings = array_column($data, 'avg_rating');
-$mean = array_sum($ratings) / count($ratings);
-$stddev = sqrt(array_sum(array_map(fn($r) => pow($r - $mean, 2), $ratings)) / count($ratings));
+sort($ratings);
+$mean = (count($ratings) > 0) ? array_sum($ratings) / count($ratings) : 0;
+$stddev = (count($ratings) > 0) ? sqrt(array_sum(array_map(fn($r)=>pow($r-$mean,2),$ratings))/count($ratings)) : 0;
 
-$keywords = ['lazy', 'rude', 'unfair', 'incompetent', 'bad', 'terrible', 'unhelpful', 'strict'];
+$count = count($ratings);
+$q1Index = floor(($count + 1) / 4);
+$q3Index = floor((3 * ($count + 1)) / 4);
+$q1 = $ratings[$q1Index] ?? $ratings[0];
+$q3 = $ratings[$q3Index] ?? $ratings[$count-1];
+$iqr = $q3 - $q1;
+$lowerBound = $q1 - 1.5 * $iqr;
+$upperBound = $q3 + 1.5 * $iqr;
+
+$keywords = ['lazy','rude','unfair','retard','incompetent','bad','terrible','unhelpful','strict'];
 $flagged = [];
 
 foreach ($data as $row) {
@@ -31,34 +45,77 @@ foreach ($data as $row) {
     $row['z_score'] = round($z, 2);
 
     foreach ($keywords as $kw) {
-        if (stripos($row['comment'], $kw) !== false && $z > 1) {
+        if (!empty($row['comment']) &&
+            stripos($row['comment'], $kw) !== false &&
+            ($z > 1 || $row['avg_rating'] < $lowerBound || $row['avg_rating'] > $upperBound)) {
             $flagged[] = $row;
             break;
         }
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Flagged Evaluations</title>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
+ <style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px; /* adjust size */
+            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
+            pointer-events: none; /* so it won’t block clicks */
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
+    </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="max-w-6xl mx-auto py-10 px-6">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-800">🚩 Flagged Evaluations</h1>
-            <a href="../php/admin_dashboard.php" class="text-sm text-blue-600 hover:underline">← Back to Dashboard</a>
+            <a href="../php/admin_dashboard.php" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded">
+                ← Back to Dashboard
+            </a>
         </div>
+
+        <!-- ✅ Toast Notification -->
+        <?php if ($showToast): ?>
+        <div id="toast" class="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50">
+            ✅ Flagged evaluations reviewed
+        </div>
+        <script>
+            setTimeout(() => {
+                const toast = document.getElementById('toast');
+                if (toast) toast.style.display = 'none';
+            }, 2500);
+        </script>
+        <?php endif; ?>
 
         <div class="bg-white p-6 rounded shadow">
             <?php if (empty($flagged)): ?>
                 <p class="text-green-600 font-semibold">✅ No suspicious evaluations found.</p>
             <?php else: ?>
                 <p class="mb-4 text-red-600 font-medium">
-                    ⚠️ <strong><?= count($flagged) ?></strong> suspicious evaluations detected based on high ratings with negative comments.
+                    ⚠️ <strong><?= count($flagged) ?></strong> suspicious evaluations detected (Z-Score & Tukey).
                 </p>
 
                 <table class="table-auto w-full text-sm border border-gray-200">

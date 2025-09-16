@@ -2,12 +2,12 @@
 session_start();
 require_once '../php/db.php';
 
-if (!isset($_SESSION['faculty'])) {
+if ($_SESSION['role'] !== 'faculty' || empty($_SESSION['faculty_id'])) {
     header("Location: ../php/login.php");
     exit;
 }
-
-$faculty_id = $_SESSION['faculty']['id'];
+$faculty_id   = $_SESSION['faculty_id'];
+$faculty_name = $_SESSION['faculty_name'];
 
 $stmt = $pdo->prepare("
     SELECT ec.name AS criteria, ROUND(AVG(er.rating), 2) AS average, COUNT(DISTINCT er.comment) AS comments
@@ -26,6 +26,33 @@ $data = $stmt->fetchAll();
 <head>
     <title>Evaluation Summary</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px;
+            opacity: 0.09;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 flex">
     <?php include 'faculty_sidebar.php'; ?>
@@ -36,11 +63,11 @@ $data = $stmt->fetchAll();
             <p>No summary data available.</p>
         <?php else: ?>
             <table class="w-full table-auto bg-white shadow rounded border">
-                <thead class="bg-gray-200">
+                <thead class="bg-blue-200">
                     <tr>
                         <th class="px-4 py-2 border">Criteria</th>
                         <th class="px-4 py-2 border">Average Rating</th>
-                        <th class="px-4 py-2 border"># of Comments</th>
+                        <th class="px-4 py-2 border">Number of Comments</th>
                     </tr>
                 </thead>
                 <tbody>

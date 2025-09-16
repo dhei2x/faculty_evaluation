@@ -4,7 +4,6 @@ require_once '../php/db.php';
 require_once '../php/auth.php';
 require_role('admin');
 
-// Fetch faculty data directly from faculties table
 $faculties = $pdo->query("SELECT * FROM faculties")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
@@ -13,52 +12,73 @@ $faculties = $pdo->query("SELECT * FROM faculties")->fetchAll(PDO::FETCH_ASSOC);
   <meta charset="UTF-8">
   <title>Manage Faculties</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+     <style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px; /* adjust size */
+            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
+            pointer-events: none; /* so it won’t block clicks */
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body class="flex bg-gray-100 min-h-screen">
-
-  <?php include '../php/admin_sidebar.php'; ?>
-
-  <div class="flex-1 p-6">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">Manage Faculties</h1>
-
-    <a href="add_faculty.php" class="mb-4 inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-      + Add Faculty
-    </a>
-
-    <div class="bg-white p-4 rounded shadow mt-4 overflow-x-auto">
-      <table class="min-w-full table-auto border border-gray-200">
-        <thead class="bg-gray-100">
-          <tr>
-            <th class="px-4 py-2 border">Faculty ID</th>
-            <th class="px-4 py-2 border">Full Name</th>
-            <th class="px-4 py-2 border">Department</th>
-            <th class="px-4 py-2 border">Position</th>
-            <th class="px-4 py-2 border">Created At</th>
-            <th class="px-4 py-2 border">Actions</th>
+<?php include '../php/admin_sidebar.php'; ?>
+<div class="flex-1 p-6">
+  <h1 class="text-3xl font-bold mb-6 text-gray-800">Manage Faculties</h1>
+  <a href="add_faculty.php" class="mb-4 inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Add Faculty</a>
+  <div class="bg-white p-4 rounded shadow mt-4 overflow-x-auto">
+    <table class="min-w-full table-auto border border-gray-200">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="px-4 py-2 border">Faculty ID</th>
+          <th class="px-4 py-2 border">Full Name</th>
+          <th class="px-4 py-2 border">Department</th>
+          <th class="px-4 py-2 border">Position</th>
+          <th class="px-4 py-2 border">Created At</th>
+          <th class="px-4 py-2 border">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($faculties as $faculty): ?>
+          <tr class="text-center hover:bg-gray-50">
+            <td class="border px-4 py-2"><?= htmlspecialchars($faculty['faculty_id']) ?></td>
+            <td class="border px-4 py-2"><?= htmlspecialchars($faculty['full_name']) ?></td>
+            <td class="border px-4 py-2"><?= htmlspecialchars($faculty['department']) ?></td>
+            <td class="border px-4 py-2"><?= htmlspecialchars($faculty['position']) ?></td>
+            <td class="border px-4 py-2"><?= htmlspecialchars($faculty['created_at']) ?></td>
+            <td class="border px-4 py-2 space-x-2">
+              <a href="edit_faculty.php?id=<?= $faculty['faculty_id'] ?>" class="text-blue-600 hover:underline">Edit</a>
+              <a href="delete_faculty.php?id=<?= $faculty['faculty_id'] ?>" class="text-red-600 hover:underline" onclick="return confirm('Are you sure?')">Delete</a>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($faculties as $faculty): ?>
-            <tr class="text-center hover:bg-gray-50">
-              <td class="border px-4 py-2"><?= htmlspecialchars($faculty['faculty_id']) ?></td>
-              <td class="border px-4 py-2"><?= htmlspecialchars($faculty['full_name']) ?></td>
-              <td class="border px-4 py-2"><?= htmlspecialchars($faculty['department']) ?></td>
-              <td class="border px-4 py-2"><?= htmlspecialchars($faculty['position']) ?></td>
-              <td class="border px-4 py-2"><?= htmlspecialchars($faculty['created_at']) ?></td>
-              <td class="border px-4 py-2 space-x-2">
-                <a href="edit_faculty.php?id=<?= $faculty['id'] ?>" class="text-blue-600 hover:underline">Edit</a>
-                <a href="delete_faculty.php?id=<?= $faculty['id'] ?>" class="text-red-600 hover:underline" onclick="return confirm('Are you sure?')">Delete</a>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-          <?php if (empty($faculties)): ?>
-            <tr>
-              <td colspan="6" class="text-center py-6 text-gray-500">No faculty members found.</td>
-            </tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
+        <?php endforeach; ?>
+        <?php if (empty($faculties)): ?>
+          <tr>
+            <td colspan="6" class="text-center py-6 text-gray-500">No faculty members found.</td>
+          </tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
   </div>
+</div>
 </body>
 </html>

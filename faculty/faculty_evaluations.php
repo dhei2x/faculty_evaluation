@@ -2,13 +2,12 @@
 session_start();
 require_once '../php/db.php';
 
-if (!isset($_SESSION['faculty'])) {
-    session_destroy();
+if ($_SESSION['role'] !== 'faculty' || empty($_SESSION['faculty_id'])) {
     header("Location: ../php/login.php");
-    exit();
+    exit;
 }
-
-$faculty_id = $_SESSION['faculty']['id'];
+$faculty_id   = $_SESSION['faculty_id'];
+$faculty_name = $_SESSION['faculty_name'];
 
 $stmt = $pdo->prepare("
     SELECT ay.year, ay.semester, ec.name AS criteria, q.text AS question, er.rating, er.comment
@@ -28,6 +27,33 @@ $evaluations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <head>
     <title>My Evaluations</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<style>
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+
+        /* Transparent logo watermark */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../php/logo.png') no-repeat center center;
+            background-size: 900px 900px;
+            opacity: 0.09;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Keep content above background */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
 <div class="flex">
@@ -41,7 +67,7 @@ $evaluations = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <?php else: ?>
             <div class="overflow-auto">
                 <table class="min-w-full table-auto bg-white shadow rounded">
-                    <thead class="bg-green-600 text-white">
+                    <thead class="bg-blue-200 text-white">
                         <tr>
                             <th class="px-4 py-2">Year</th>
                             <th class="px-4 py-2">Semester</th>
