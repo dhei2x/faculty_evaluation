@@ -108,7 +108,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div>
         <label class="block text-sm font-medium text-gray-700">Role</label>
         <select name="role" required class="mt-1 block w-full border border-gray-300 rounded p-2">
-          <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
           <option value="faculty" <?= $user['role'] === 'faculty' ? 'selected' : '' ?>>Faculty</option>
           <option value="students" <?= $user['role'] === 'students' ? 'selected' : '' ?>>Students</option>
         </select>

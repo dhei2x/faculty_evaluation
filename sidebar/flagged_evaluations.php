@@ -92,7 +92,7 @@ foreach ($data as $row) {
     <div class="max-w-6xl mx-auto py-10 px-6">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-800">🚩 Flagged Evaluations</h1>
-            <a href="../php/admin_dashboard.php" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded">
+            <a href="../php/admin_dashboard.php" class="bg-blue-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded">
                 ← Back to Dashboard
             </a>
         </div>

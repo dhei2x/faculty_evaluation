@@ -67,7 +67,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
   <div class="max-w-4xl mx-auto p-6 glass-card content">
     <h1 class="text-2xl font-bold mb-4">Manage Users</h1>
     <a href="../php/admin_dashboard.php" 
-       class="inline-block mb-4 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+       class="inline-block mb-4 bg-blue-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
       ← Back to Dashboard
     </a>
 

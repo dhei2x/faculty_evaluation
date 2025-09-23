@@ -111,29 +111,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <p class="text-red-600 text-center mb-4"><?= htmlspecialchars($error) ?></p>
       <?php endif; ?>
 
-      <form method="POST" class="space-y-4">
-        <div class="relative">
-          <input type="text" name="username" placeholder="Username" required
-            class="pl-10 pr-4 h-12 w-full border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"/>
-          <span class="absolute left-3 top-3 text-gray-400">👤</span>
-        </div>
+       <form method="POST" class="space-y-4">
+  <div>
+    <input type="text" name="username" placeholder="Username" required
+      class="px-4 h-12 w-full border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"/>
+  </div>
 
-        <div class="relative">
-          <input type="password" name="password" placeholder="Password" required
-            class="pl-10 pr-4 h-12 w-full border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"/>
-          <span class="absolute left-3 top-3 text-gray-400">🔒</span>
-        </div>
+  <div>
+    <input type="password" name="password" placeholder="Password" required
+      class="px-4 h-12 w-full border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"/>
+  </div>
 
-        <div class="flex items-center justify-between text-sm">
-          <label class="flex items-center space-x-2">
-            <input type="checkbox" name="remember" class="h-4 w-4">
-            <span>Remember me</span>
-          </label>
-          <button type="submit" name="login" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded">
-            Log in
-          </button>
-        </div>
-      </form>
+  <div class="flex items-center justify-between text-sm">
+    <label class="flex items-center space-x-2">
+      <input type="checkbox" name="remember" class="h-4 w-4">
+      <span>Remember me</span>
+    </label>
+    <button type="submit" name="login" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded">
+      Log in
+    </button>
+  </div>
+</form>
+
 
       <div class="text-center mt-4 space-y-1 text-sm">
         <p class="text-gray-600">Forgot your password?</p>

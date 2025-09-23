@@ -127,7 +127,7 @@ function ordinal(int $n): string {
 </head>
 <body class="p-6 bg-gray-100">
 
-    <a href="../php/admin_dashboard.php" class="inline-block mb-4 bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800">
+    <a href="../php/admin_dashboard.php" class="inline-block mb-4 bg-blue-300 text-white px-4 py-2 rounded hover:bg-gray-800">
         ← Back to Dashboard
     </a>
 

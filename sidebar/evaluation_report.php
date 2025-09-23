@@ -162,7 +162,7 @@ foreach ($comments as $c) {
 <div class="max-w-6xl mx-auto bg-white p-6 rounded shadow">
     <div class="flex justify-between items-center mb-4">
         <h1 class="text-2xl font-bold">Evaluation Reports</h1>
-        <a href="../php/admin_dashboard.php" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded">
+        <a href="../php/admin_dashboard.php" class="bg-blue-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded">
             ← Back to Dashboard
         </a>
     </div>

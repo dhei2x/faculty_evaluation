@@ -10,32 +10,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $student_id = trim($_POST['student_id']);
     $full_name  = trim($_POST['full_name']);
     $course     = trim($_POST['course']);
-    $year_level = (int)($_POST['year_level'] ?? 1);
+    $year_level = max(1, min(4, (int)($_POST['year_level'] ?? 1))); // restrict 1–4
     $section    = trim($_POST['section']);
-    $username   = trim($_POST['username']);
     $email      = trim($_POST['email']);
     $password   = $_POST['password'];
 
-    // Check duplicates
+    // Check if student_id or email already exists
     $check = $pdo->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
-    $check->execute([$username, $email]);
+    $check->execute([$student_id, $email]);
     if ($check->fetch()) {
-        $errors[] = "Username or Email already exists.";
+        $errors[] = "Student ID or Email already exists.";
     }
 
     if (empty($errors)) {
         try {
             $pdo->beginTransaction();
 
-            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password, role, created_at) VALUES (?, ?, ?, 'students', NOW())");
-            $stmtUser->execute([$username, $email, password_hash($password, PASSWORD_DEFAULT)]);
-            $user_id = $pdo->lastInsertId();
+            // Insert into users (student_id is username)
+            $stmtUser = $pdo->prepare("
+                INSERT INTO users (username, email, password, role, created_at) 
+                VALUES (?, ?, ?, 'students', NOW())
+            ");
+            $stmtUser->execute([$student_id, $email, password_hash($password, PASSWORD_DEFAULT)]);
 
-            $stmtStudent = $pdo->prepare("INSERT INTO students (user_id, student_id, full_name, course, year_level, section) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmtStudent->execute([$user_id, $student_id, $full_name, $course, $year_level, $section]);
+            // Insert into students
+            $stmtStudent = $pdo->prepare("
+                INSERT INTO students (student_id, full_name, course, year_level, section)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmtStudent->execute([$student_id, $full_name, $course, $year_level, $section]);
 
             $pdo->commit();
-            header("Location: students.php");
+            header("Location: students.php?success=1");
             exit;
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -51,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="UTF-8">
   <title>Add Student</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
+<style>
         body {
             position: relative;
             background-color: #f3f4f6; /* Tailwind gray-100 */
@@ -82,10 +88,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="p-6 bg-gray-100">
   <div class="max-w-xl mx-auto bg-white p-6 rounded shadow">
     <h1 class="text-2xl font-bold mb-4">Add Student</h1>
+
+    <?php if (!empty($errors)): ?>
+      <div class="bg-red-100 text-red-700 p-3 rounded mb-4">
+        <?= implode('<br>', $errors) ?>
+      </div>
+    <?php endif; ?>
+
     <form method="post">
       <div class="mb-4">
-        <label class="block">Username</label>
-        <input name="username" required class="w-full border px-3 py-2 rounded" />
+        <label class="block">Student ID</label>
+        <input name="student_id" required class="w-full border px-3 py-2 rounded" />
+      </div>
+      <div class="mb-4">
+        <label class="block">Full Name</label>
+        <input name="full_name" required class="w-full border px-3 py-2 rounded" />
       </div>
       <div class="mb-4">
         <label class="block">Email</label>
@@ -96,20 +113,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input type="password" name="password" required class="w-full border px-3 py-2 rounded" />
       </div>
       <div class="mb-4">
-        <label class="block">Student ID</label>
-        <input name="student_id" required class="w-full border px-3 py-2 rounded" />
-      </div>
-      <div class="mb-4">
-        <label class="block">Full Name</label>
-        <input name="full_name" required class="w-full border px-3 py-2 rounded" />
-      </div>
-      <div class="mb-4">
         <label class="block">Course</label>
         <input name="course" required class="w-full border px-3 py-2 rounded" />
       </div>
       <div class="mb-4">
         <label class="block">Year Level</label>
-        <input name="year_level" type="number" min="1" required class="w-full border px-3 py-2 rounded" />
+        <input name="year_level" type="number" min="1" max="4" required class="w-full border px-3 py-2 rounded" />
       </div>
       <div class="mb-4">
         <label class="block">Section</label>
