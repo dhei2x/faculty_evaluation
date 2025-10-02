@@ -42,6 +42,27 @@ $students = $pdo->query("SELECT * FROM students")->fetchAll(PDO::FETCH_ASSOC);
     </style>
 </head>
 <body class="flex bg-gray-50 min-h-screen">
+ <?php if (isset($_GET['success'])): ?>
+<div id="popup" 
+     class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded shadow-lg">
+  ✅ Student added successfully!
+</div>
+<script>
+  setTimeout(() => document.getElementById('popup').remove(), 3000);
+</script>
+<?php endif; ?>
+
+<?php if (isset($_GET['deleted'])): ?>
+<div id="popup" 
+     class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded shadow-lg">
+  🗑️ Student deleted successfully!
+</div>
+<script>
+  setTimeout(() => document.getElementById('popup').remove(), 3000);
+</script>
+<?php endif; ?>
+
+
 
   <!-- Sidebar -->
   <?php include '../php/admin_sidebar.php'; ?>

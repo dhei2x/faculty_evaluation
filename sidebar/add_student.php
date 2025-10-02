@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $student_id = trim($_POST['student_id']);
     $full_name  = trim($_POST['full_name']);
     $course     = trim($_POST['course']);
-    $year_level = max(1, min(4, (int)($_POST['year_level'] ?? 1))); // restrict 1–4
+    $year_level = max(1, min(4, (int)($_POST['year_level'] ?? 1)));
     $section    = trim($_POST['section']);
     $email      = trim($_POST['email']);
     $password   = $_POST['password'];
@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
 
-            // Insert into users (student_id is username)
+            // Insert into users
             $stmtUser = $pdo->prepare("
                 INSERT INTO users (username, email, password, role, created_at) 
                 VALUES (?, ?, ?, 'students', NOW())
@@ -41,6 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtStudent->execute([$student_id, $full_name, $course, $year_level, $section]);
 
             $pdo->commit();
+
+            // redirect with success flag
             header("Location: students.php?success=1");
             exit;
         } catch (Exception $e) {
@@ -50,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

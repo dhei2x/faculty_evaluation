@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($newPassword !== $confirmPassword) {
         $error = "Passwords do not match.";
     } else {
-        // Verify token
+        // Check token
         $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE token = ? AND expires_at > NOW()");
         $stmt->execute([$token]);
         $reset = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -22,41 +22,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($reset) {
             $hashed = password_hash($newPassword, PASSWORD_DEFAULT);
 
-            // Update password
+            // Update user password
             $pdo->prepare("UPDATE users SET password = ? WHERE email = ?")
                 ->execute([$hashed, $reset['email']]);
 
-            // Delete token
+            // Remove used token
             $pdo->prepare("DELETE FROM password_resets WHERE email = ?")->execute([$reset['email']]);
 
-            $success = "✅ Password reset successful! <a href='login.php' class='text-blue-600'>Login here</a>";
+            $success = "✅ Password reset successful! <a href='login.php'>Login</a>";
         } else {
-            $error = "Invalid or expired token.";
+            $error = "❌ Invalid or expired reset link.";
         }
     }
 }
 ?>
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Reset Password</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-</head>
-<body class="bg-gray-100 flex justify-center items-center min-h-screen">
-  <div class="bg-white p-6 rounded shadow-md w-full max-w-md">
-    <h2 class="text-xl font-bold mb-4">Reset Password</h2>
-    <?php if ($error): ?><p class="text-red-600 mb-4"><?= htmlspecialchars($error) ?></p><?php endif; ?>
-    <?php if ($success): ?><p class="text-green-600 mb-4"><?= $success ?></p><?php endif; ?>
-    <?php if (!$success): ?>
-      <form method="POST">
-        <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
-        <label>New Password</label>
-        <input type="password" name="password" required class="w-full border p-2 mb-3 rounded">
-        <label>Confirm Password</label>
-        <input type="password" name="confirm_password" required class="w-full border p-2 mb-3 rounded">
-        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Reset Password</button>
-      </form>
-    <?php endif; ?>
-  </div>
+<head><title>Reset Password</title></head>
+<body>
+  <h2>Reset Password</h2>
+  <?php if ($error) echo "<p style='color:red'>$error</p>"; ?>
+  <?php if ($success) echo "<p style='color:green'>$success</p>"; ?>
+
+  <?php if (!$success): ?>
+    <form method="POST">
+      <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
+      <label>New Password:</label>
+      <input type="password" name="password" required><br>
+      <label>Confirm Password:</label>
+      <input type="password" name="confirm_password" required><br>
+      <button type="submit">Reset Password</button>
+    </form>
+  <?php endif; ?>
 </body>
 </html>

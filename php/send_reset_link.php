@@ -1,13 +1,15 @@
 <?php
-include 'db.php'; // include your DB connection
+session_start();
+require_once 'db.php';
 use PHPMailer\PHPMailer\PHPMailer;
+require 'vendor/autoload.php'; // Composer PHPMailer
 
-require 'vendor/autoload.php'; // install PHPMailer via Composer
+$message = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'];
+    $email = trim($_POST['email'] ?? '');
 
-    // Verify email exists
+    // Check if user exists
     $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch();
@@ -16,35 +18,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $token = bin2hex(random_bytes(32));
         $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
-        // Store token
+        // Save reset token
         $pdo->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)")
             ->execute([$email, $token, $expires]);
 
-       $resetLink = "http://yourdomain.com/reset_password.php?token=$token";
+        $resetLink = "http://yourdomain.com/reset_password.php?token=$token";
 
         // Send email
-        $mail = new PHPMailer();
+        $mail = new PHPMailer(true);
         $mail->isSMTP();
-        $mail->Host = 'smtp.example.com'; // Replace
+        $mail->Host = 'smtp.yourdomain.com'; // ✅ Your hosting SMTP
         $mail->SMTPAuth = true;
-        $mail->Username = 'your@example.com';
+        $mail->Username = 'noreply@yourdomain.com';
         $mail->Password = 'yourpassword';
         $mail->SMTPSecure = 'tls';
         $mail->Port = 587;
 
-        $mail->setFrom('noreply@example.com', 'Faculty Eval System');
+        $mail->setFrom('noreply@yourdomain.com', 'Faculty Eval System');
         $mail->addAddress($email);
         $mail->Subject = 'Password Reset';
-        $mail->Body = "Click the link to reset your password: $resetLink";
+        $mail->Body = "Click here to reset your password:\n\n$resetLink";
 
         if ($mail->send()) {
-            echo "Reset link sent!";
+            $message = "✅ Reset link has been sent to your email.";
         } else {
-            echo "Failed to send email.";
+            $message = "❌ Failed to send email. " . $mail->ErrorInfo;
         }
     } else {
-        echo "Email not found.";
+        $message = "❌ Email not found.";
     }
 }
 ?>
-
+<!DOCTYPE html>
+<html>
+<head><title>Forgot Password</title></head>
+<body>
+  <h2>Forgot Password</h2>
+  <?php if ($message) echo "<p>$message</p>"; ?>
+  <form method="post">
+    <label>Email:</label>
+    <input type="email" name="email" required>
+    <button type="submit">Send Reset Link</button>
+  </form>
+</body>
+</html>
