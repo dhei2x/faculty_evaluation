@@ -17,10 +17,6 @@ $current = basename($_SERVER['PHP_SELF']);
            class="block px-4 py-2 rounded <?= $current == 'faculty_summary.php' ? 'bg-blue-400 text-white font-semibold' : 'hover:bg-blue-300'; ?>">
             Summary
         </a>
-        <a href="view_comments.php"
-           class="block px-4 py-2 rounded <?= $current == 'view_comments.php' ? 'bg-blue-400 text-white font-semibold' : 'hover:bg-blue-300'; ?>">
-            View Comments
-        </a>
         <a href="faculty_profile.php"
            class="block px-4 py-2 rounded <?= $current == 'faculty_profile.php' ? 'bg-blue-400 text-white font-semibold' : 'hover:bg-blue-300'; ?>">
             Profile

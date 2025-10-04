@@ -2,20 +2,20 @@
 session_start();
 require_once '../php/db.php';
 
-// 🔒 Faculty session check
+// ✅ Session check
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'faculty' || empty($_SESSION['faculty_id'])) {
     header("Location: ../php/login.php");
     exit;
 }
 
-$facultyId   = $_SESSION['faculty_id'];   // numeric PK
+$facultyId   = $_SESSION['faculty_id'];
 $facultyName = $_SESSION['faculty_name'] ?? 'faculty';
 
-
-// 📊 Evaluation summary
+// ✅ Summary query (fix overcounting with DISTINCT)
 $summaryStmt = $pdo->prepare("
     SELECT ay.year, ay.semester, ec.name AS criteria_name,
-           ROUND(AVG(er.rating), 2) AS avg_rating, COUNT(er.id) AS total
+           ROUND(AVG(er.rating), 2) AS avg_rating,
+           COUNT(DISTINCT er.student_id) AS total
     FROM evaluation_report er
     JOIN questions q ON er.question_id = q.id
     JOIN evaluation_criteria ec ON q.criteria_id = ec.id
@@ -27,18 +27,20 @@ $summaryStmt = $pdo->prepare("
 $summaryStmt->execute([$facultyId]);
 $summaryData = $summaryStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// 💬 Student comments
+// ✅ Comments query (fix duplicates)
 $commentsStmt = $pdo->prepare("
-    SELECT ay.year, ay.semester, er.comment
+    SELECT DISTINCT ay.year, ay.semester, TRIM(er.comment) AS comment
     FROM evaluation_report er
     JOIN academic_years ay ON er.academic_year_id = ay.id
-    WHERE er.faculty_id = ? AND er.comment IS NOT NULL AND er.comment != ''
-    ORDER BY ay.year DESC, ay.semester
+    WHERE er.faculty_id = ? 
+      AND er.comment IS NOT NULL 
+      AND TRIM(er.comment) != ''
+    ORDER BY ay.year DESC, ay.semester, er.id DESC
 ");
 $commentsStmt->execute([$facultyId]);
 $commentsData = $commentsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Group comments by year/semester
+// Group comments by semester/year
 $commentsGrouped = [];
 foreach ($commentsData as $row) {
     $key = $row['year'] . ' - ' . $row['semester'];
@@ -50,53 +52,45 @@ foreach ($commentsData as $row) {
 <head>
     <title>Faculty Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-
-<style>
+    <style>
         body {
             position: relative;
-            background-color: #f3f4f6; /* Tailwind gray-100 */
+            background-color: #f3f4f6;
         }
-
-        /* Transparent logo watermark */
         body::before {
             content: "";
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             background: url('../php/logo.png') no-repeat center center;
             background-size: 900px 900px;
             opacity: 0.09;
             pointer-events: none;
             z-index: 0;
         }
-
-        /* Keep content above background */
-        .content {
-            position: relative;
-            z-index: 1;
-        }
-    </style></head>
+        .content { position: relative; z-index: 1; }
+    </style>
+</head>
 <body class="bg-gray-100 flex">
 
 <?php include 'faculty_sidebar.php'; ?>
 
-<main class="flex-1 p-8 space-y-12">
- <?php if (!empty($_SESSION['welcome'])): ?>
-    <div id="welcomeToast" class="fixed top-4 right-4 bg-blue-200 text-white px-4 py-2 rounded shadow-lg z-50">
-        <?= htmlspecialchars($_SESSION['welcome']) ?>
-    </div>
-    <script>
-        setTimeout(() => {
-            const toast = document.getElementById('welcomeToast');
-            if (toast) toast.style.display = 'none';
-        }, 2000); // hide after 2 seconds
-    </script>
-    <?php unset($_SESSION['welcome']); ?>
-<?php endif; ?>
+<main class="flex-1 p-8 space-y-12 content">
 
+    <?php if (!empty($_SESSION['welcome'])): ?>
+        <div id="welcomeToast" class="fixed top-4 right-4 bg-blue-200 text-white px-4 py-2 rounded shadow-lg z-50">
+            <?= htmlspecialchars($_SESSION['welcome']) ?>
+        </div>
+        <script>
+            setTimeout(() => {
+                const toast = document.getElementById('welcomeToast');
+                if (toast) toast.style.display = 'none';
+            }, 2000);
+        </script>
+        <?php unset($_SESSION['welcome']); ?>
+    <?php endif; ?>
 
+    <!-- Evaluation Summary -->
     <h2 class="text-2xl font-semibold mb-4">Evaluation Summary</h2>
 
     <?php if (empty($summaryData)): ?>
@@ -133,6 +127,7 @@ foreach ($commentsData as $row) {
         <?php endforeach; ?>
     <?php endif; ?>
 
+    <!-- Comments Section -->
     <h2 class="text-2xl font-bold mb-4">Student Comments</h2>
     <?php if (empty($commentsGrouped)): ?>
         <p>No comments yet.</p>
@@ -141,13 +136,14 @@ foreach ($commentsData as $row) {
             <div class="bg-white rounded-xl shadow p-5 mb-6">
                 <h3 class="font-semibold text-blue-700 mb-3"><?= htmlspecialchars($period) ?></h3>
                 <ul class="list-disc pl-6 space-y-1">
-                    <?php foreach ($comments as $comment): ?>
+                    <?php foreach (array_unique($comments) as $comment): ?>
                         <li><?= htmlspecialchars($comment) ?></li>
                     <?php endforeach; ?>
                 </ul>
             </div>
         <?php endforeach; ?>
     <?php endif; ?>
+
 </main>
 </body>
 </html>

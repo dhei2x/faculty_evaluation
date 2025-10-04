@@ -4,201 +4,148 @@ require_once '../php/db.php';
 require_once '../php/auth.php';
 require_role('admin');
 
-// ✅ Mark reviewed
-$showToast = false;
-if (isset($_GET['reviewed']) && $_GET['reviewed'] == 1) {
-    $_SESSION['reviewed_flagged'] = true;
-    $showToast = true;
-}
-
-// ✅ Fetch evaluations (avg per student per faculty)
+// ✅ Faculty-level evaluation summary
 $sql = "
-    SELECT er.student_id, er.faculty_id, f.full_name,
+    SELECT er.faculty_id, f.full_name,
            AVG(er.rating) AS avg_rating,
-           GROUP_CONCAT(DISTINCT er.comment SEPARATOR ' | ') AS comment
+           GROUP_CONCAT(DISTINCT er.comment SEPARATOR ' | ') AS comments
     FROM evaluation_report er
     JOIN faculties f ON er.faculty_id = f.id
-    GROUP BY er.student_id, er.faculty_id
+    WHERE er.comment IS NOT NULL AND er.comment != ''
+    GROUP BY er.faculty_id
 ";
-$data = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+$stmt = $pdo->query($sql);
+$evaluations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// ✅ Collect all ratings
-$ratings = array_column($data, 'avg_rating');
+// ✅ Fetch bad/good words dynamically from database
+$badwords  = $pdo->query("SELECT word FROM flagged_words WHERE type = 'bad'")
+                 ->fetchAll(PDO::FETCH_COLUMN);
+$goodwords = $pdo->query("SELECT word FROM flagged_words WHERE type = 'good'")
+                 ->fetchAll(PDO::FETCH_COLUMN);
+
+// --------------------------------------
+// 🔹 Step 1: Collect ratings for Z-score & Tukey
+// --------------------------------------
+$ratings = array_column($evaluations, 'avg_rating');
+$mean    = count($ratings) ? array_sum($ratings) / count($ratings) : 0;
+$stdDev  = count($ratings) > 1 ? sqrt(array_sum(array_map(fn($r) => pow($r - $mean, 2), $ratings)) / (count($ratings) - 1)) : 0;
+
+// Quartiles for Tukey
 sort($ratings);
-
-// ✅ Mean & Stddev
-$mean = (count($ratings) > 0) ? array_sum($ratings) / count($ratings) : 0;
-$stddev = (count($ratings) > 0) 
-    ? sqrt(array_sum(array_map(fn($r)=>pow($r-$mean,2),$ratings))/count($ratings)) 
-    : 0;
-
-// ✅ Quartiles & IQR for Tukey
-function getQuantile($arr, $q) {
-    if (empty($arr)) return 0;
-    $pos = ($q * (count($arr) + 1)) - 1;
-    $pos = max(0, min(count($arr) - 1, $pos));
-    return $arr[(int)$pos];
+$n = count($ratings);
+$q1 = $q3 = 0;
+if ($n > 0) {
+    $q1 = $ratings[(int) floor(($n + 1) / 4) - 1] ?? $ratings[0];
+    $q3 = $ratings[(int) floor(3 * ($n + 1)) / 4 - 1] ?? $ratings[$n - 1];
 }
-$q1 = getQuantile($ratings, 0.25);
-$q3 = getQuantile($ratings, 0.75);
-$iqr = $q3 - $q1;
-$lowerBound = $q1 - 1.5 * $iqr;
-$upperBound = $q3 + 1.5 * $iqr;
-$extremeLower = $q1 - 3 * $iqr;
-$extremeUpper = $q3 + 3 * $iqr;
+$IQR = $q3 - $q1;
+$lowerFence = $q1 - 1.5 * $IQR;
+$upperFence = $q3 + 1.5 * $IQR;
 
-// ✅ Fetch flagged words from DB
-$badwords = $pdo->query("SELECT word FROM flagged_words WHERE type = 'bad'")->fetchAll(PDO::FETCH_COLUMN);
-$goodwords = $pdo->query("SELECT word FROM flagged_words WHERE type = 'good'")->fetchAll(PDO::FETCH_COLUMN);
-
-// ✅ Analyze evaluations
+// --------------------------------------
+// 🔹 Step 2: Detect anomalies
+// --------------------------------------
 $flagged = [];
 
-foreach ($data as $row) {
-    $reasons = [];
-    $extreme = false;
+foreach ($evaluations as $eval) {
+    $faculty  = $eval['full_name'];
+    $rating   = (float)$eval['avg_rating'];
+    $comments = strtolower($eval['comments']);
+    $zScore   = ($stdDev > 0) ? ($rating - $mean) / $stdDev : 0;
 
-    // Z-score anomaly
-    $z = ($stddev > 0) ? ($row['avg_rating'] - $mean) / $stddev : 0;
-    if (abs($z) > 2) $reasons[] = "⚠️ Z-score anomaly (z=" . round($z,2) . ")";
+    $reason = [];
 
-    // Tukey outlier
-    if ($row['avg_rating'] < $lowerBound || $row['avg_rating'] > $upperBound) {
-        $reasons[] = "⚠️ Tukey IQR outlier";
-    }
+    if (abs($zScore) > 2) $reason[] = "Z-score outlier (z=" . round($zScore, 2) . ")";
+    if ($rating < $lowerFence || $rating > $upperFence) $reason[] = "Tukey outlier (outside IQR)";
 
-    // Extreme Tukey
-    if ($row['avg_rating'] < $extremeLower || $row['avg_rating'] > $extremeUpper) {
-        $reasons[] = "🚨 Extreme outlier";
-        $extreme = true;
-    }
-
-    // Bad word detection
     foreach ($badwords as $bw) {
-        if (!empty($row['comment']) && stripos($row['comment'], $bw) !== false) {
-            $reasons[] = "❌ Contains bad word ($bw)";
+        if (stripos($comments, $bw) !== false) {
+            if ($rating >= 4) $reason[] = "Suspicious: High rating but contains bad word '{$bw}'";
+            else $reason[] = "Negative sentiment detected: {$bw}";
             break;
         }
     }
 
-    // Good word detection
     foreach ($goodwords as $gw) {
-        if (!empty($row['comment']) && stripos($row['comment'], $gw) !== false) {
-            $reasons[] = "✅ Contains good word ($gw)";
+        if (stripos($comments, $gw) !== false && $rating <= 2) {
+            $reason[] = "Suspicious: Low rating but contains good word '{$gw}'";
             break;
         }
     }
 
-    // High rating but has bad words
-    if ($row['avg_rating'] >= 4 && !empty($row['comment'])) {
-        foreach ($badwords as $bw) {
-            if (stripos($row['comment'], $bw) !== false) {
-                $reasons[] = "⚠️ High rating but negative comment";
-                break;
-            }
-        }
-    }
-
-    // Low rating but has good words
-    if ($row['avg_rating'] <= 2 && !empty($row['comment'])) {
-        foreach ($goodwords as $gw) {
-            if (stripos($row['comment'], $gw) !== false) {
-                $reasons[] = "⚠️ Low rating but positive comment";
-                break;
-            }
-        }
-    }
-
-    if (!empty($reasons)) {
-        $row['z_score'] = round($z, 2);
-        $row['extreme'] = $extreme;
-        $row['reasons'] = implode(" | ", $reasons);
-        $flagged[] = $row;
+    if (!empty($reason)) {
+        $flagged[] = [
+            'faculty' => $faculty,
+            'avg_rating' => $rating,
+            'comments' => $eval['comments'],
+            'reason' => implode(", ", $reason)
+        ];
     }
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Flagged Evaluations</title>
-    <script src="https://cdn.tailwindcss.com"></script>
- <style>
-        body {
-            position: relative;
-            background-color: #f3f4f6;
-        }
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('../php/logo.png') no-repeat center center;
-            background-size: 900px 900px;
-            opacity: 0.09;
-            pointer-events: none;
-            z-index: 0;
-        }
-        .content { position: relative; z-index: 1; }
-        .extreme { background-color: #fee2e2 !important; }
-    </style>
+<meta charset="UTF-8">
+<title>🚩 Flagged Evaluations</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<style>
+body {
+    background-color: #f3f4f6;
+    position: relative;
+}
+body::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: url('../php/logo.png') no-repeat center center;
+    background-size: 900px 900px;
+    opacity: 0.09;
+    pointer-events: none;
+    z-index: 0;
+}
+.content { position: relative; z-index: 1; }
+</style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="max-w-6xl mx-auto py-10 px-6">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">🚩 Flagged Evaluations</h1>
-            <a href="../php/admin_dashboard.php" class="bg-blue-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded">
-                ← Back to Dashboard
-            </a>
-        </div>
-
-        <!-- ✅ Toast Notification -->
-        <?php if ($showToast): ?>
-        <div id="toast" class="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50">
-            ✅ Flagged evaluations reviewed
-        </div>
-        <script>
-            setTimeout(() => {
-                const toast = document.getElementById('toast');
-                if (toast) toast.style.display = 'none';
-            }, 2500);
-        </script>
-        <?php endif; ?>
-
-        <div class="bg-white p-6 rounded shadow">
-            <?php if (empty($flagged)): ?>
-                <p class="text-green-600 font-semibold">✅ No suspicious evaluations found.</p>
-            <?php else: ?>
-                <p class="mb-4 text-red-600 font-medium">
-                    ⚠️ <strong><?= count($flagged) ?></strong> suspicious evaluations detected.
-                </p>
-
-                <table class="table-auto w-full text-sm border border-gray-200">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-4 py-2 border">Faculty</th>
-                            <th class="px-4 py-2 border">Avg Rating</th>
-                            <th class="px-4 py-2 border">Z-Score</th>
-                            <th class="px-4 py-2 border">Comment(s)</th>
-                            <th class="px-4 py-2 border">Reason(s)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($flagged as $entry): ?>
-                            <tr class="border-b <?= $entry['extreme'] ? 'extreme font-bold text-red-700' : 'hover:bg-red-50' ?>">
-                                <td class="px-4 py-2 font-medium"><?= htmlspecialchars($entry['full_name']) ?></td>
-                                <td class="px-4 py-2 text-center"><?= round($entry['avg_rating'], 2) ?></td>
-                                <td class="px-4 py-2 text-center text-blue-600"><?= $entry['z_score'] ?></td>
-                                <td class="px-4 py-2 text-gray-700"><?= htmlspecialchars($entry['comment']) ?></td>
-                                <td class="px-4 py-2 text-red-700"><?= htmlspecialchars($entry['reasons']) ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            <?php endif; ?>
-        </div>
+<body class="content p-8">
+<div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">🚩 Flagged Faculty Evaluations</h2>
+        <form action="../php/admin_dashboard.php" method="post">
+            <button type="submit"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded">
+                🔙 Back to Dashboard
+            </button>
+        </form>
     </div>
+
+    <?php if (empty($flagged)): ?>
+        <p class="text-green-600 text-lg font-semibold">✅ No anomalies or mismatched comments detected.</p>
+    <?php else: ?>
+        <div class="overflow-x-auto">
+            <table class="min-w-full border border-gray-300 rounded-lg">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="border px-4 py-2 text-left">Faculty</th>
+                        <th class="border px-4 py-2 text-center">Average Rating</th>
+                        <th class="border px-4 py-2 text-left">Comments</th>
+                        <th class="border px-4 py-2 text-left">Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($flagged as $f): ?>
+                    <tr class="bg-red-50 hover:bg-red-100">
+                        <td class="border px-4 py-2 font-semibold"><?= htmlspecialchars($f['faculty']) ?></td>
+                        <td class="border px-4 py-2 text-center"><?= round($f['avg_rating'], 2) ?></td>
+                        <td class="border px-4 py-2"><?= htmlspecialchars($f['comments']) ?></td>
+                        <td class="border px-4 py-2 text-red-700"><?= htmlspecialchars($f['reason']) ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
 </body>
 </html>
