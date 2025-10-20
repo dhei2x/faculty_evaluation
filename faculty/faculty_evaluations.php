@@ -2,113 +2,193 @@
 session_start();
 require_once '../php/db.php';
 
-// Faculty session check
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'faculty' || empty($_SESSION['faculty_id'])) {
-    header("Location: ../php/login.php");
-    exit;
+// Ensure student is logged in
+if (!isset($_SESSION['student_id'])) {
+    die("Session expired. Please log in again.");
 }
 
-$faculty_id   = $_SESSION['faculty_id'];
-$faculty_name = $_SESSION['faculty_name'];
+$student_id = $_SESSION['student_id'];
 
-// Fetch evaluation summary
-$stmt = $pdo->prepare("
+// ✅ Get active academic year
+$ayStmt = $pdo->query("SELECT id, year, semester FROM academic_years WHERE is_active = 1 LIMIT 1");
+$activeAY = $ayStmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$activeAY) {
+    die("No active academic year found.");
+}
+
+// ✅ Faculties not yet evaluated
+$facultyStmt = $pdo->prepare("
     SELECT 
-        ay.year, ay.semester, ec.name AS criteria, q.text AS question,
-        ROUND(AVG(er.rating),2) AS avg_rating,
-        COUNT(er.id) AS total_responses,
-        GROUP_CONCAT(DISTINCT TRIM(er.comment) ORDER BY er.id DESC SEPARATOR '||') AS all_comments
-    FROM evaluation_report er
-    JOIN questions q ON er.question_id = q.id
-    JOIN evaluation_criteria ec ON q.criteria_id = ec.id
-    JOIN academic_years ay ON er.academic_year_id = ay.id
-    WHERE er.faculty_id = ?
-    GROUP BY ay.id, q.id, ec.id
-    ORDER BY ay.year DESC, ay.semester, ec.name, q.text
+        id, 
+        CONCAT(first_name, ' ', COALESCE(middle_name, ''), ' ', last_name) AS full_name
+    FROM faculties
+    WHERE id NOT IN (
+        SELECT faculty_id FROM evaluation_report
+        WHERE student_id = ? AND academic_year_id = ?
+    )
 ");
-$stmt->execute([$faculty_id]);
-$evaluations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$facultyStmt->execute([$student_id, $activeAY['id']]);
+$faculties = $facultyStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Function to limit comments
-function getSampleComments($commentString, $max = 3) {
-    if (!$commentString) return [];
-    $comments = explode('||', $commentString);
-    return array_slice($comments, 0, $max);
-}
+// ✅ Fetch classes
+$classStmt = $pdo->query("SELECT id, class_name FROM classes ORDER BY class_name ASC");
+$classes = $classStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Group evaluations by year-semester
-$grouped = [];
-foreach ($evaluations as $e) {
-    $period = $e['year'] . ' - ' . $e['semester'];
-    $grouped[$period][] = $e;
+// ✅ Fetch subjects
+$subjectStmt = $pdo->query("SELECT id, code, description FROM subjects ORDER BY code ASC");
+$subjects = $subjectStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// ✅ Criteria and questions
+$criteriaStmt = $pdo->query("
+    SELECT c.id AS criteria_id, c.name AS criteria_name, q.id AS question_id, q.text AS question_text
+    FROM evaluation_criteria c
+    JOIN questions q ON q.criteria_id = c.id
+    ORDER BY c.id, q.id
+");
+
+$criteriaMap = [];
+while ($row = $criteriaStmt->fetch(PDO::FETCH_ASSOC)) {
+    $cid = $row['criteria_id'];
+    if (!isset($criteriaMap[$cid])) {
+        $criteriaMap[$cid] = ['name' => $row['criteria_name'], 'questions' => []];
+    }
+    $criteriaMap[$cid]['questions'][] = ['id' => $row['question_id'], 'text' => $row['question_text']];
 }
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>My Evaluations</title>
+    <meta charset="UTF-8">
+    <title>Faculty Evaluation</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f3f4f6; }
+        body {
+            position: relative;
+            background-color: #f3f4f6; /* gray background */
+        }
         body::before {
             content: "";
-            position: fixed; top: 0; left: 0;
+            position: fixed;
+            top: 0; left: 0;
             width: 100%; height: 100%;
             background: url('../php/logo.png') no-repeat center center;
-            background-size: 900px 900px; opacity: 0.09;
-            pointer-events: none; z-index: 0;
+            background-size: 900px 900px;
+            opacity: 0.09;
+            pointer-events: none;
+            z-index: 0;
         }
-        .content { position: relative; z-index: 1; }
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+        .card {
+            background-color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        .card + .card {
+            margin-top: 1rem;
+        }
     </style>
 </head>
-<body class="bg-gray-100">
-<div class="flex content">
-    <?php include 'faculty_sidebar.php'; ?>
 
-    <div class="flex-1 p-6">
-        <h1 class="text-2xl font-bold mb-6">My Evaluation Summary</h1>
+<body class="min-h-screen p-6">
+<div class="max-w-4xl mx-auto content">
 
-        <?php if (empty($grouped)): ?>
-            <p class="text-gray-500">No evaluations found.</p>
-        <?php else: ?>
-            <?php foreach ($grouped as $period => $items): ?>
-                <div class="mb-8">
-                    <h2 class="text-xl font-semibold text-blue-700 mb-4"><?= htmlspecialchars($period) ?></h2>
-                    <div class="overflow-auto">
-                        <table class="min-w-full table-auto bg-white shadow rounded">
-                            <thead class="bg-blue-200 text-black">
-                                <tr>
-                                    <th class="px-4 py-2">Criteria</th>
-                                    <th class="px-4 py-2">Question</th>
-                                    <th class="px-4 py-2">Average Rating</th>
-                                    <th class="px-4 py-2">Total Responses</th>
-                                    <th class="px-4 py-2">Comments</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($items as $e): ?>
-                                    <tr class="border-b hover:bg-gray-100 align-top">
-                                        <td class="px-4 py-2"><?= htmlspecialchars($e['criteria']) ?></td>
-                                        <td class="px-4 py-2"><?= htmlspecialchars($e['question']) ?></td>
-                                        <td class="px-4 py-2 text-center"><?= $e['avg_rating'] ?></td>
-                                        <td class="px-4 py-2 text-center"><?= $e['total_responses'] ?></td>
-                                        <td class="px-4 py-2">
-                                            <ul class="list-disc pl-5">
-                                                <?php foreach (getSampleComments($e['all_comments'], 3) as $comment): ?>
-                                                    <li><?= htmlspecialchars($comment) ?></li>
-                                                <?php endforeach; ?>
-                                            </ul>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+    <div class="flex justify-between items-center mb-4">
+        <h1 class="text-2xl font-bold">Faculty Evaluation</h1>
+        <a href="../studentlog/student_dashboard.php" 
+           class="inline-block bg-blue-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+            ← Back to Dashboard
+        </a>
+    </div>
+
+    <p class="text-sm text-gray-600 mb-4">
+        Academic Year: <?= htmlspecialchars($activeAY['year'] . ' - ' . $activeAY['semester']) ?>
+    </p>
+
+    <?php if (empty($faculties)): ?>
+        <div class="card text-red-600 font-semibold">
+            You have evaluated all faculty for this academic year.
+        </div>
+    <?php else: ?>
+        <form action="submit_evaluation.php" method="POST" class="space-y-4">
+            <input type="hidden" name="academic_year_id" value="<?= $activeAY['id'] ?>">
+
+            <!-- ✅ Faculty Select -->
+            <div class="card">
+                <label class="block font-semibold mb-2">Select Faculty</label>
+                <select name="faculty_id" required class="border p-2 rounded w-full">
+                    <option value="">-- Choose Faculty --</option>
+                    <?php foreach ($faculties as $faculty): ?>
+                        <option value="<?= $faculty['id'] ?>"><?= htmlspecialchars($faculty['full_name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <!-- ✅ Class Select -->
+            <div class="card">
+                <label class="block font-semibold mb-2">Select Class</label>
+                <select name="class_id" required class="border p-2 rounded w-full">
+                    <option value="">-- Choose Class --</option>
+                    <?php foreach ($classes as $class): ?>
+                        <option value="<?= $class['id'] ?>"><?= htmlspecialchars($class['class_name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <!-- ✅ Subject Select -->
+            <div class="card">
+                <label class="block font-semibold mb-2">Select Subject</label>
+                <select name="subject_id" required class="border p-2 rounded w-full">
+                    <option value="">-- Choose Subject --</option>
+                    <?php foreach ($subjects as $subject): ?>
+                        <option value="<?= $subject['id'] ?>">
+                            <?= htmlspecialchars($subject['code'] . ' - ' . substr($subject['description'], 0, 50)) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <!-- ✅ Rating Legend -->
+            <div class="card flex justify-between text-sm font-semibold text-gray-700">
+                <span>1 - Poor</span>
+                <span>2 - Fair</span>
+                <span>3 - Good</span>
+                <span>4 - Very Good</span>
+                <span>5 - Excellent</span>
+            </div>
+
+            <!-- ✅ Criteria & Questions -->
+            <?php foreach ($criteriaMap as $criteria_id => $criteria): ?>
+                <div class="card">
+                    <h3 class="font-bold mb-2"><?= htmlspecialchars($criteria['name']) ?></h3>
+                    <?php foreach ($criteria['questions'] as $question): ?>
+                        <div class="mb-3">
+                            <label class="block mb-1"><?= htmlspecialchars($question['text']) ?></label>
+                            <div class="flex space-x-4">
+                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="criteria[<?= $criteria_id ?>][<?= $question['id'] ?>]" value="<?= $i ?>" required>
+                                        <span class="ml-1"><?= $i ?></span>
+                                    </label>
+                                <?php endfor; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             <?php endforeach; ?>
-        <?php endif; ?>
-    </div>
-</div>
-</body>
-</html>
+
+            <!-- ✅ Comment -->
+            <div class="card">
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block font-semibold">Additional Comments</label>
+                    <span class="text-sm text-gray-500 italic">(optional)</span>
+                </div>
+                <textarea name="comment" rows="4" class="w-full border rounded p-2" placeholder="Write your feedback here..."></textarea>
+            </div>
+
+            <!--

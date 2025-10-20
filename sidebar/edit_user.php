@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="UTF-8">
   <title>Edit User</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
- <style>
+  <style>
         body {
             position: relative;
             background-color: #f3f4f6; /* Tailwind gray-100 */
@@ -80,9 +80,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 100%;
             height: 100%;
             background: url('../php/logo.png') no-repeat center center;
-            background-size: 900px 900px; /* adjust size */
-            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
-            pointer-events: none; /* so it won’t block clicks */
+            background-size: 900px 900px;
+            opacity: 0.09;
+            pointer-events: none;
             z-index: 0;
         }
 
@@ -91,10 +91,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             position: relative;
             z-index: 1;
         }
+
+        /* Card effect to allow bg to peek in gaps */
+        .card {
+            background-color: #ffffff; /* solid for readability */
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-6">
-  <div class="max-w-xl mx-auto p-6 rounded shadow content">
+<body class="min-h-screen p-6">
+  <div class="max-w-xl mx-auto card content">
     <h1 class="text-2xl font-bold mb-4">Edit User</h1>
     <form method="POST" class="space-y-4">
       <div>

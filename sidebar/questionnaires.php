@@ -43,10 +43,10 @@ $questions = $pdo->query("
 <head>
     <title>Evaluation Questions</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
+    <style>
         body {
             position: relative;
-            background-color: #f3f4f6; /* Tailwind gray-100 */
+            background-color: #f3f4f6;
         }
 
         /* Transparent logo watermark */
@@ -58,22 +58,35 @@ $questions = $pdo->query("
             width: 100%;
             height: 100%;
             background: url('../php/logo.png') no-repeat center center;
-            background-size: 900px 900px; /* adjust size */
-            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
-            pointer-events: none; /* so it won’t block clicks */
+            background-size: 1000px 1000px;
+            opacity: 0.13; /* slightly more visible */
+            pointer-events: none;
             z-index: 0;
         }
 
-        /* Keep content above background */
+        /* Transparent white box for content */
         .content {
             position: relative;
             z-index: 1;
+            background-color: rgba(255, 255, 255, 0.78); /* translucent */
+            backdrop-filter: blur(4px); /* smooth glass effect */
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+
+        /* Solid background for question rows for readability */
+        form.border-b {
+            background-color: rgba(255, 255, 255, 0.92);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
         }
     </style>
 </head>
 <body class="bg-gray-100 p-6">
 
-<div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
+<div class="max-w-4xl mx-auto content">
     <div class="flex justify-between items-center mb-4">
         <h1 class="text-2xl font-bold">Evaluation Questions</h1>
         <a href="../php/admin_dashboard.php" class="bg-blue-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded">

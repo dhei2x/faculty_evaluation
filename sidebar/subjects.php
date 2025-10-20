@@ -97,35 +97,59 @@ function ordinal(int $n): string {
 <head>
     <title>Subjects</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-  <style>
-        body {
-            position: relative;
-            background-color: #f3f4f6; /* Tailwind gray-100 */
-        }
+    <style>
+    body {
+        position: relative;
+        background-color: #f3f4f6;
+    }
 
-        /* Transparent logo watermark */
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('../php/logo.png') no-repeat center center;
-            background-size: 900px 900px; /* adjust size */
-            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
-            pointer-events: none; /* so it won’t block clicks */
-            z-index: 0;
-        }
+    /* Transparent watermark background */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: url('../php/logo.png') no-repeat center center;
+        background-size: 900px 900px;
+        opacity: 0.13; /* slightly stronger watermark */
+        pointer-events: none;
+        z-index: 0;
+    }
 
-        /* Keep content above background */
-        .content {
-            position: relative;
-            z-index: 1;
-        }
-    </style>
+    /* Content area slightly transparent to show watermark */
+    .content {
+        position: relative;
+        z-index: 1;
+        background-color: rgba(255, 255, 255, 0.75); /* a bit more transparent */
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+    }
+
+    /* Keep table rows solid white for readability */
+    table tr {
+        background-color: rgba(255, 255, 255, 0.95) !important;
+    }
+
+    /* Table headers slightly gray */
+    thead tr {
+        background-color: rgba(229, 231, 235, 0.95) !important; /* Tailwind gray-200 */
+    }
+
+    /* Subtotals / totals keep contrast */
+    tr.bg-gray-100,
+    tr.bg-yellow-100,
+    tr.bg-green-200 {
+        background-color: rgba(243, 244, 246, 0.9) !important;
+    }
+</style>
+
+
 </head>
 <body class="p-6 bg-gray-100">
+<div class="content">
 
     <a href="../php/admin_dashboard.php" class="inline-block mb-4 bg-blue-300 text-white px-4 py-2 rounded hover:bg-gray-800">
         ← Back to Dashboard
@@ -182,7 +206,6 @@ function ordinal(int $n): string {
     ?>
 
     <?php foreach ($grouped as $course => $years): ?>
-        <!-- Course Heading -->
         <h1 class="text-2xl font-bold text-purple-700 mt-8 mb-4">
             <?= htmlspecialchars($course) ?>
         </h1>
@@ -193,7 +216,6 @@ function ordinal(int $n): string {
 
         <?php foreach ($years as $year => $semesters): ?>
             <?php foreach ($semesters as $sem => $list): ?>
-                <!-- Year + Sem heading under course -->
                 <h2 class="text-xl font-semibold mt-6 mb-2">
                     <?= ordinal((int)$year) ?> Year - <?= ($sem == 1 ? "1st Semester" : "2nd Semester") ?>
                 </h2>
@@ -254,7 +276,6 @@ function ordinal(int $n): string {
                             </tr>
                         <?php endforeach; ?>
 
-                        <!-- Semester Total -->
                         <tr class="bg-gray-100 font-semibold">
                             <td class="p-2" colspan="2">Semester Total</td>
                             <td class="p-2"><?= $lecTotal ?></td>
@@ -277,7 +298,6 @@ function ordinal(int $n): string {
             <?php endforeach; ?>
         <?php endforeach; ?>
 
-        <!-- Course Grand Total -->
         <table class="min-w-full bg-white shadow rounded mb-12">
             <tr class="bg-yellow-100 font-bold">
                 <td class="p-2" colspan="2"><?= htmlspecialchars($course) ?> Grand Total</td>
@@ -289,7 +309,6 @@ function ordinal(int $n): string {
         </table>
     <?php endforeach; ?>
 
-    <!-- Global Grand Total -->
     <table class="min-w-full bg-white shadow rounded mt-12">
         <tr class="bg-green-200 font-bold">
             <td class="p-2" colspan="2">Global Grand Total (All Courses)</td>
@@ -300,5 +319,6 @@ function ordinal(int $n): string {
         </tr>
     </table>
 
+</div>
 </body>
 </html>

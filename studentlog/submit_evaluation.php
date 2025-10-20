@@ -2,56 +2,43 @@
 session_start();
 require_once '../php/db.php';
 
-if (!isset($_SESSION['student_id'])) {
-    die("Unauthorized access.");
-}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $student_id = $_SESSION['student_id'] ?? null;
+    $faculty_id = $_POST['faculty_id'] ?? null;
+    $academic_year_id = $_POST['academic_year_id'] ?? null;
+    $class_id = $_POST['class_id'] ?? null;
+    $subject_id = $_POST['subject_id'] ?? null;
+    $ratings = $_POST['ratings'] ?? [];
+    $comments = $_POST['comments'] ?? [];
 
-$student_id = $_SESSION['student_id'];
-$faculty_id = $_POST['faculty_id'] ?? null;
-$criteria = $_POST['criteria'] ?? [];
-$academic_year_id = $_POST['academic_year_id'] ?? null;
-$comment = trim($_POST['comment'] ?? '');
-
-if (!$student_id || !$faculty_id || !$academic_year_id || empty($criteria)) {
-    die("Missing data.");
-}
-
-// ✅ Prevent duplicate evaluation
-$checkStmt = $pdo->prepare("
-    SELECT COUNT(*) FROM evaluation_report
-    WHERE student_id = ? AND faculty_id = ? AND academic_year_id = ?
-");
-$checkStmt->execute([$student_id, $faculty_id, $academic_year_id]);
-if ($checkStmt->fetchColumn() > 0) {
-    header("Location: student_dashboard.php?error=already_evaluated");
-    exit();
-}
-
-// ✅ Insert ratings (comment only on the first insert)
-$insertStmt = $pdo->prepare("
-    INSERT INTO evaluation_report 
-    (student_id, faculty_id, academic_year_id, criteria_id, question_id, rating, comment, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-");
-
-$commentAdded = false;
-
-foreach ($criteria as $criteria_id => $questions) {
-    foreach ($questions as $question_id => $rating) {
-        if ($rating >= 1 && $rating <= 5) {
-            $insertStmt->execute([
-                $student_id,
-                $faculty_id,
-                $academic_year_id,
-                $criteria_id,
-                $question_id,
-                $rating,
-                !$commentAdded ? $comment : null // only add comment once
-            ]);
-            $commentAdded = true;
-        }
+    if (!$student_id || !$faculty_id) {
+        die("Missing student or faculty ID.");
     }
-}
 
-header("Location: student_dashboard.php?success=1");
-exit();
+    $stmt = $pdo->prepare("
+        INSERT INTO evaluation_report 
+        (student_id, faculty_id, academic_year_id, class_id, subject_id, criteria_id, question_id, rating, comment) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+
+    foreach ($ratings as $question_id => $rating) {
+        $criteria_id = $_POST['criteria_id'][$question_id] ?? null;
+        $comment = $comments[$question_id] ?? null;
+
+        $stmt->execute([
+            $student_id,
+            $faculty_id,
+            $academic_year_id,
+            $class_id,
+            $subject_id,
+            $criteria_id,
+            $question_id,
+            $rating,
+            $comment
+        ]);
+    }
+
+    echo "<script>alert('Evaluation submitted successfully!'); window.location.href='student_dashboard.php';</script>";
+    exit;
+}
+?>

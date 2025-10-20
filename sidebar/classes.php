@@ -65,34 +65,55 @@ $classes = $stmt->fetchAll();
   <meta charset="UTF-8">
   <title>Manage Classes</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <style>
-        body {
-            position: relative;
-            background-color: #f3f4f6; /* Tailwind gray-100 */
-        }
 
-        /* Transparent logo watermark */
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('../php/logo.png') no-repeat center center;
-            background-size: 900px 900px; /* adjust size */
-            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
-            pointer-events: none; /* so it won’t block clicks */
-            z-index: 0;
-        }
+  <style>
+    body {
+        position: relative;
+        background-color: #f3f4f6;
+        min-height: 100vh;
+    }
 
-        /* Keep content above background */
-        .content {
-            position: relative;
-            z-index: 1;
-        }
-    </style>
+    /* ✅ Fixed logo watermark (visible but behind all content) */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 900px;
+        height: 900px;
+        background: url('../php/logo.png') no-repeat center center;
+        background-size: 900px 900px;
+        opacity: 0.09; /* faint and subtle */
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    /* ✅ Main container solid white */
+    .main-container {
+        position: relative;
+        z-index: 1;
+        background-color: white;
+        padding: 2rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+        max-width: 900px;
+        margin: 2rem auto;
+    }
+
+    /* ✅ Make forms and tables fully opaque */
+    form, table {
+        background-color: white !important;
+        opacity: 1 !important;
+    }
+
+    table {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border-radius: 0.5rem;
+    }
+  </style>
 </head>
+
 <body class="flex bg-gray-100 min-h-screen">
 
   <!-- Sidebar -->
@@ -100,7 +121,7 @@ $classes = $stmt->fetchAll();
 
   <!-- Main -->
   <div class="flex-1 p-6">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
+    <div class="main-container">
       <h1 class="text-2xl font-bold mb-4">Manage Classes</h1>
 
       <?php if ($message): ?>
@@ -110,7 +131,7 @@ $classes = $stmt->fetchAll();
       <?php endif; ?>
 
       <!-- Add Form -->
-      <form method="POST" class="mb-6">
+      <form method="POST" class="mb-6 bg-white p-4 rounded shadow">
         <input type="hidden" name="action" value="add">
         <label class="block text-sm font-medium">Class Name</label>
         <input type="text" name="class_name" required class="mt-1 w-full border rounded p-2">
@@ -123,7 +144,7 @@ $classes = $stmt->fetchAll();
 
       <!-- Table -->
       <h2 class="text-xl font-semibold mb-2">Existing Classes</h2>
-      <table class="w-full text-left border border-gray-300">
+      <table class="w-full text-left border border-gray-300 bg-white rounded">
         <thead>
           <tr class="bg-gray-100">
             <th class="p-2 border-b">
@@ -141,7 +162,7 @@ $classes = $stmt->fetchAll();
         </thead>
         <tbody>
           <?php foreach ($classes as $class): ?>
-            <tr class="border-t">
+            <tr class="border-t hover:bg-gray-50">
               <td class="p-2">
                 <form method="POST" class="flex space-x-2 items-center">
                   <input type="hidden" name="action" value="edit">

@@ -4,11 +4,13 @@ require_once '../php/db.php';
 require_once '../php/auth.php';
 require_role('admin');
 
-// ✅ Faculty-level evaluation summary
+// ✅ Faculty-level evaluation summary (with name parts)
 $sql = "
-    SELECT er.faculty_id, f.full_name,
-           AVG(er.rating) AS avg_rating,
-           GROUP_CONCAT(DISTINCT er.comment SEPARATOR ' | ') AS comments
+    SELECT 
+        er.faculty_id, 
+        CONCAT(f.last_name, ', ', f.first_name, ' ', IFNULL(f.middle_name, '')) AS full_name,
+        AVG(er.rating) AS avg_rating,
+        GROUP_CONCAT(DISTINCT er.comment SEPARATOR ' | ') AS comments
     FROM evaluation_report er
     JOIN faculties f ON er.faculty_id = f.id
     WHERE er.comment IS NOT NULL AND er.comment != ''
@@ -87,7 +89,7 @@ foreach ($evaluations as $eval) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🚩 Flagged Evaluations</title>
+<title>🚩 Flagged Evaluations (in %)</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <style>
 body {
@@ -109,7 +111,7 @@ body::before {
 </style>
 </head>
 <body class="content p-8">
-<div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6">
+<div class="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-6">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold text-gray-800">🚩 Flagged Faculty Evaluations</h2>
         <form action="../php/admin_dashboard.php" method="post">
@@ -125,19 +127,21 @@ body::before {
     <?php else: ?>
         <div class="overflow-x-auto">
             <table class="min-w-full border border-gray-300 rounded-lg">
-                <thead class="bg-gray-200">
+                <thead class="bg-blue-200">
                     <tr>
                         <th class="border px-4 py-2 text-left">Faculty</th>
-                        <th class="border px-4 py-2 text-center">Average Rating</th>
+                        <th class="border px-4 py-2 text-center">Average Score (%)</th>
                         <th class="border px-4 py-2 text-left">Comments</th>
                         <th class="border px-4 py-2 text-left">Reason</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($flagged as $f): ?>
+                    <?php foreach ($flagged as $f): 
+                        $percent = round(($f['avg_rating'] / 5) * 100, 2);
+                    ?>
                     <tr class="bg-red-50 hover:bg-red-100">
                         <td class="border px-4 py-2 font-semibold"><?= htmlspecialchars($f['faculty']) ?></td>
-                        <td class="border px-4 py-2 text-center"><?= round($f['avg_rating'], 2) ?></td>
+                        <td class="border px-4 py-2 text-center"><?= $percent ?>%</td>
                         <td class="border px-4 py-2"><?= htmlspecialchars($f['comments']) ?></td>
                         <td class="border px-4 py-2 text-red-700"><?= htmlspecialchars($f['reason']) ?></td>
                     </tr>

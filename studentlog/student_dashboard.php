@@ -13,8 +13,8 @@ $studentName = $_SESSION['student_name'] ?? '';
 
 // ✅ Handle popup close
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_welcome'])) {
-    unset($_SESSION['welcome']); // remove popup
-    header("Location: student_dashboard.php"); // reload to hide popup
+    unset($_SESSION['welcome']);
+    header("Location: student_dashboard.php");
     exit;
 }
 
@@ -25,7 +25,7 @@ $errorMsg   = $_GET['error'] ?? '';
 // ✅ Fetch evaluations
 $sql = "
 SELECT 
-    f.full_name AS faculty_name,
+    CONCAT(f.first_name, ' ', f.middle_name, ' ', f.last_name) AS faculty_name,
     ec.name AS criteria_name,
     q.text AS question_text,
     er.rating,
@@ -36,8 +36,9 @@ JOIN faculties f ON er.faculty_id = f.id
 JOIN questions q ON er.question_id = q.id
 JOIN evaluation_criteria ec ON q.criteria_id = ec.id
 WHERE er.student_id = ?
-ORDER BY er.created_at DESC, f.full_name, ec.id, q.id
+ORDER BY er.created_at DESC, f.last_name, ec.id, q.id
 ";
+
 $stmt = $pdo->prepare($sql);
 $stmt->execute([$studentId]);
 $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -64,9 +65,9 @@ foreach ($data as $row) {
     <style>
         body {
             position: relative;
-            background-color: #f3f4f6; /* Tailwind gray-100 */
+            background-color: #f3f4f6;
         }
-        /* Transparent logo watermark */
+
         body::before {
             content: "";
             position: fixed;
@@ -80,31 +81,23 @@ foreach ($data as $row) {
             pointer-events: none;
             z-index: 0;
         }
+
         .content {
             position: relative;
             z-index: 1;
         }
+
+        /* ✅ Ensure popup is always on top */
+        #welcomeModal {
+            z-index: 9999 !important;
+        }
     </style>
 </head>
-<body class="bg-gray-100 flex">
+<body class="flex bg-gray-100 min-h-screen">
 
 <?php include 'student_sidebar.php'; ?>
-<?php if (!empty($_SESSION['welcome'])): ?>
-    <div id="welcomeToast" class="fixed top-4 right-4 bg-blue-200 text-white px-4 py-2 rounded shadow-lg z-50">
-        <?= htmlspecialchars($_SESSION['welcome']) ?>
-    </div>
-    <script>
-        setTimeout(() => {
-            const toast = document.getElementById('welcomeToast');
-            if (toast) toast.style.display = 'none';
-        }, 2000); // hide after 2 seconds
-    </script>
-    <?php unset($_SESSION['welcome']); ?>
-<?php endif; ?>
 
-
-<div class="ml-64 p-6 w-full">
-  
+<div class="ml-64 p-6 w-full content">
     <h2 class="text-xl font-semibold mb-4">Your Submitted Evaluations</h2>
 
     <?php if ($successMsg): ?>
@@ -133,7 +126,7 @@ foreach ($data as $row) {
                     <?php foreach ($eval['items'] as $item): ?>
                         <div class="mb-2">
                             <p><strong><?= htmlspecialchars($item['criteria']) ?>:</strong> <?= htmlspecialchars($item['question']) ?></p>
-                            <p class="ml-4 text-yellow-600 font-semibold">Rating: <?= $item['rating'] ?>/5</p>
+                            <p class="ml-4 text-yellow-600 font-semibold">Rating: <?= htmlspecialchars($item['rating']) ?>/5</p>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -148,11 +141,11 @@ foreach ($data as $row) {
     <?php endif; ?>
 </div>
 
-<!-- ✅ Welcome Popup Modal -->
+<!-- ✅ Welcome Popup Modal (always in front now) -->
 <?php if (!empty($_SESSION['welcome'])): ?>
 <div id="welcomeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-  <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm text-center">
-    <h2 class="text-xl font-bold mb-4">🎉 Welcome</h2>
+  <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm text-center relative z-50">
+    <h2 class="text-xl font-bold mb-4"></h2>
     <p class="mb-4"><?= htmlspecialchars($_SESSION['welcome']) ?></p>
     <form method="post">
       <button type="submit" name="close_welcome" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">

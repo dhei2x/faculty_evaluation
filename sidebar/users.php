@@ -35,7 +35,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
   <meta charset="UTF-8">
   <title>Manage Users</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
- <style>
+  <style>
         body {
             position: relative;
             background-color: #f3f4f6; /* Tailwind gray-100 */
@@ -50,9 +50,9 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             width: 100%;
             height: 100%;
             background: url('../php/logo.png') no-repeat center center;
-            background-size: 900px 900px; /* adjust size */
-            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
-            pointer-events: none; /* so it won’t block clicks */
+            background-size: 900px 900px;
+            opacity: 0.09;
+            pointer-events: none;
             z-index: 0;
         }
 
@@ -61,10 +61,23 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             position: relative;
             z-index: 1;
         }
+
+        /* Card effect for list items */
+        .card {
+            background-color: #ffffff; /* solid background for readability */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Optional: space between cards shows bg/watermark */
+        .card + .card {
+            margin-top: 1rem;
+        }
     </style>
 </head>
 <body class="min-h-screen p-6">
-  <div class="max-w-4xl mx-auto p-6 glass-card content">
+  <div class="max-w-4xl mx-auto content">
     <h1 class="text-2xl font-bold mb-4">Manage Users</h1>
     <a href="../php/admin_dashboard.php" 
        class="inline-block mb-4 bg-blue-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
@@ -76,9 +89,9 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <?php endif; ?>
 
     <h2 class="text-xl font-semibold mb-2">User List</h2>
-    <ul class="space-y-3">
+    <ul>
       <?php foreach ($users as $user): ?>
-        <li class="p-3 border rounded flex justify-between items-center glass-card">
+        <li class="card flex justify-between items-center">
           <span>
             <?= htmlspecialchars($user['username']) ?> - <?= htmlspecialchars($user['role']) ?>
             <?php if ($user['id'] == 1): ?>
@@ -100,7 +113,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </li>
       <?php endforeach; ?>
       <?php if (empty($users)): ?>
-        <li class="text-gray-500 glass-card p-3 rounded">No users found.</li>
+        <li class="card text-gray-500">No users found.</li>
       <?php endif; ?>
     </ul>
   </div>

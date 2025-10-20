@@ -14,7 +14,7 @@ $facultyName = $_SESSION['faculty_name'] ?? 'faculty';
 // ✅ Summary query (fix overcounting with DISTINCT)
 $summaryStmt = $pdo->prepare("
     SELECT ay.year, ay.semester, ec.name AS criteria_name,
-           ROUND(AVG(er.rating), 2) AS avg_rating,
+           ROUND((AVG(er.rating) / 5) * 100, 2) AS avg_percentage,
            COUNT(DISTINCT er.student_id) AS total
     FROM evaluation_report er
     JOIN questions q ON er.question_id = q.id
@@ -109,7 +109,7 @@ foreach ($commentsData as $row) {
                     <thead class="bg-gray-100 text-left">
                         <tr>
                             <th class="border px-3 py-2">Criteria</th>
-                            <th class="border px-3 py-2">Average Rating</th>
+                            <th class="border px-3 py-2">Average (%)</th>
                             <th class="border px-3 py-2">Responses</th>
                         </tr>
                     </thead>
@@ -117,7 +117,7 @@ foreach ($commentsData as $row) {
                         <?php foreach ($items as $r): ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="border px-3 py-2"><?= htmlspecialchars($r['criteria_name']) ?></td>
-                                <td class="border px-3 py-2"><?= $r['avg_rating'] ?></td>
+                                <td class="border px-3 py-2"><?= $r['avg_percentage'] ?>%</td>
                                 <td class="border px-3 py-2"><?= $r['total'] ?></td>
                             </tr>
                         <?php endforeach; ?>

@@ -18,7 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute(['id' => $_POST['id']]);
     }
 
-    // ✅ FIXED: Redirect to the correct filename
     header("Location: evaluation_criteria.php");
     exit();
 }
@@ -31,13 +30,14 @@ $criteria = $pdo->query("SELECT * FROM evaluation_criteria ORDER BY id")->fetchA
 <head>
     <title>Evaluation Criteria</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
+    <style>
         body {
             position: relative;
             background-color: #f3f4f6; /* Tailwind gray-100 */
+            min-height: 100vh;
         }
 
-        /* Transparent logo watermark */
+        /* ✅ Transparent logo watermark */
         body::before {
             content: "";
             position: fixed;
@@ -46,25 +46,32 @@ $criteria = $pdo->query("SELECT * FROM evaluation_criteria ORDER BY id")->fetchA
             width: 100%;
             height: 100%;
             background: url('../php/logo.png') no-repeat center center;
-            background-size: 900px 900px; /* adjust size */
-            opacity: 0.09; /* 👈 controls transparency (lower = more transparent) */
-            pointer-events: none; /* so it won’t block clicks */
+            background-size: 900px 900px;
+            opacity: 0.09;
+            pointer-events: none;
             z-index: 0;
         }
 
-        /* Keep content above background */
+        /* ✅ Transparent panel */
         .content {
             position: relative;
             z-index: 1;
+            background-color: rgba(255, 255, 255, 0.7); /* semi-transparent white */
+            backdrop-filter: blur(6px); /* smooth glass-like look */
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 3rem auto;
         }
     </style>
 </head>
 <body class="bg-gray-100 p-6">
-<div class="max-w-3xl mx-auto bg-white p-6 rounded shadow">
+<div class="content">
 
     <div class="flex justify-between items-center mb-4">
-        <h1 class="text-2xl font-bold">Evaluation Criteria</h1>
-        <a href="../php/admin_dashboard.php" class="bg-blue-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded">
+        <h1 class="text-2xl font-bold text-gray-800">Evaluation Criteria</h1>
+        <a href="../php/admin_dashboard.php" class="bg-blue-300 hover:bg-blue-400 text-gray-800 font-semibold px-4 py-2 rounded">
             ← Back to Dashboard
         </a>
     </div>
@@ -73,23 +80,23 @@ $criteria = $pdo->query("SELECT * FROM evaluation_criteria ORDER BY id")->fetchA
     <form method="POST" class="mb-6">
         <input type="hidden" name="action" value="add">
         <input type="text" name="name" required class="border p-2 rounded w-full" placeholder="Enter new criteria name">
-        <button class="bg-blue-600 text-white mt-2 px-4 py-2 rounded">Add</button>
+        <button class="bg-blue-600 text-white mt-2 px-4 py-2 rounded hover:bg-blue-700">Add</button>
     </form>
 
     <!-- List -->
     <ul>
         <?php foreach ($criteria as $c): ?>
-            <li class="border-b py-2 flex justify-between items-center">
-                <form method="POST" class="flex gap-2 w-full">
+            <li class="border-b py-2 flex justify-between items-center flex-wrap gap-2">
+                <form method="POST" class="flex gap-2 flex-grow">
                     <input type="hidden" name="action" value="edit">
                     <input type="hidden" name="id" value="<?= $c['id'] ?>">
                     <input type="text" name="name" value="<?= htmlspecialchars($c['name']) ?>" class="border rounded p-2 flex-grow">
-                    <button class="bg-green-600 text-white px-3 py-1 rounded">Save</button>
+                    <button class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Save</button>
                 </form>
                 <form method="POST" onsubmit="return confirm('Delete this criteria?')">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="<?= $c['id'] ?>">
-                    <button class="bg-red-600 text-white px-3 py-1 rounded ml-2">Delete</button>
+                    <button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Delete</button>
                 </form>
             </li>
         <?php endforeach; ?>

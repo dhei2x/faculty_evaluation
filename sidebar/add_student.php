@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="UTF-8">
   <title>Add Student</title>
   <script src="https://cdn.tailwindcss.com"></script>
-<style>
+  <style>
         body {
             position: relative;
             background-color: #f3f4f6; /* Tailwind gray-100 */
@@ -86,10 +86,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             position: relative;
             z-index: 1;
         }
-    </style>
+  </style>
 </head>
 <body class="p-6 bg-gray-100">
-  <div class="max-w-xl mx-auto bg-white p-6 rounded shadow">
+  <div class="max-w-xl mx-auto bg-white/80 p-6 rounded shadow content">
     <h1 class="text-2xl font-bold mb-4">Add Student</h1>
 
     <?php if (!empty($errors)): ?>
