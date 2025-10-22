@@ -1,12 +1,21 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+function require_role($roles) {
+    if (!isset($_SESSION['role'])) {
+        header("Location: login.php");
+        exit;
+    }
 
-function require_role($role) {
-    if (!isset($_SESSION['role']) || $_SESSION['role'] !== $role) {
-        header('Location: login.php');
-        exit();
+    // allow single or multiple roles
+    if (is_array($roles)) {
+        if (!in_array($_SESSION['role'], $roles)) {
+            header("Location: login.php");
+            exit;
+        }
+    } else {
+        if ($_SESSION['role'] !== $roles) {
+            header("Location: login.php");
+            exit;
+        }
     }
 }
 ?>

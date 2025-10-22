@@ -8,10 +8,28 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'faculty' || empty($_SESS
     exit;
 }
 
-$facultyId   = $_SESSION['faculty_id'];
-$facultyName = $_SESSION['faculty_name'] ?? 'faculty';
+// ✅ Get faculty record using faculty_id code (e.g., F001)
+$facultyCode = $_SESSION['faculty_id'];
+$facultyStmt = $pdo->prepare("SELECT id, first_name, middle_name, last_name FROM faculties WHERE faculty_id = ?");
+$facultyStmt->execute([$facultyCode]);
+$faculty = $facultyStmt->fetch(PDO::FETCH_ASSOC);
 
-// ✅ Summary query (fix overcounting with DISTINCT)
+if (!$faculty) {
+    echo "Faculty record not found for: " . htmlspecialchars($facultyCode);
+    exit;
+}
+
+$facultyId = $faculty['id'];
+$facultyName = trim($faculty['first_name'] . ' ' . ($faculty['middle_name'] ? $faculty['middle_name'] . ' ' : '') . $faculty['last_name']);
+
+// ✅ Only show popup once after login
+$showWelcome = false;
+if (!isset($_SESSION['faculty_welcome_shown'])) {
+    $showWelcome = true;
+    $_SESSION['faculty_welcome_shown'] = true;
+}
+
+// ✅ Summary query
 $summaryStmt = $pdo->prepare("
     SELECT ay.year, ay.semester, ec.name AS criteria_name,
            ROUND((AVG(er.rating) / 5) * 100, 2) AS avg_percentage,
@@ -21,15 +39,16 @@ $summaryStmt = $pdo->prepare("
     JOIN evaluation_criteria ec ON q.criteria_id = ec.id
     JOIN academic_years ay ON er.academic_year_id = ay.id
     WHERE er.faculty_id = ?
+      AND er.rating IS NOT NULL
     GROUP BY ay.id, ec.id
     ORDER BY ay.year DESC, ay.semester
 ");
 $summaryStmt->execute([$facultyId]);
 $summaryData = $summaryStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// ✅ Comments query (fix duplicates)
+// ✅ Comments query
 $commentsStmt = $pdo->prepare("
-    SELECT DISTINCT ay.year, ay.semester, TRIM(er.comment) AS comment
+    SELECT ay.year, ay.semester, TRIM(er.comment) AS comment
     FROM evaluation_report er
     JOIN academic_years ay ON er.academic_year_id = ay.id
     WHERE er.faculty_id = ? 
@@ -40,7 +59,7 @@ $commentsStmt = $pdo->prepare("
 $commentsStmt->execute([$facultyId]);
 $commentsData = $commentsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Group comments by semester/year
+// ✅ Group comments by academic year & semester
 $commentsGrouped = [];
 foreach ($commentsData as $row) {
     $key = $row['year'] . ' - ' . $row['semester'];
@@ -63,12 +82,34 @@ foreach ($commentsData as $row) {
             top: 0; left: 0;
             width: 100%; height: 100%;
             background: url('../php/logo.png') no-repeat center center;
-            background-size: 900px 900px;
-            opacity: 0.09;
+            background-size: 700px 700px;
+            opacity: 0.12;
             pointer-events: none;
             z-index: 0;
         }
         .content { position: relative; z-index: 1; }
+
+        /* ✅ Centered welcome popup */
+        #welcomeBox {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2563eb;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 9999px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            font-weight: 600;
+            z-index: 50;
+            opacity: 0;
+            animation: fadeInOut 3s ease forwards;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            10%, 80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex">
@@ -77,24 +118,18 @@ foreach ($commentsData as $row) {
 
 <main class="flex-1 p-8 space-y-12 content">
 
-    <?php if (!empty($_SESSION['welcome'])): ?>
-        <div id="welcomeToast" class="fixed top-4 right-4 bg-blue-200 text-white px-4 py-2 rounded shadow-lg z-50">
-            <?= htmlspecialchars($_SESSION['welcome']) ?>
+    <!-- ✅ Centered Welcome Pop-up (only shows once) -->
+    <?php if ($showWelcome): ?>
+        <div id="welcomeBox">
+            Welcome, <?= htmlspecialchars($facultyName) ?>!
         </div>
-        <script>
-            setTimeout(() => {
-                const toast = document.getElementById('welcomeToast');
-                if (toast) toast.style.display = 'none';
-            }, 2000);
-        </script>
-        <?php unset($_SESSION['welcome']); ?>
     <?php endif; ?>
 
-    <!-- Evaluation Summary -->
+    <!-- ✅ Evaluation Summary -->
     <h2 class="text-2xl font-semibold mb-4">Evaluation Summary</h2>
 
     <?php if (empty($summaryData)): ?>
-        <p>No evaluation data available yet.</p>
+        <p class="text-gray-600">No evaluation data available yet.</p>
     <?php else: ?>
         <?php
         $grouped = [];
@@ -110,7 +145,7 @@ foreach ($commentsData as $row) {
                         <tr>
                             <th class="border px-3 py-2">Criteria</th>
                             <th class="border px-3 py-2">Average (%)</th>
-                            <th class="border px-3 py-2">Responses</th>
+                            <th class="border px-3 py-2">Students Responses</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -127,10 +162,10 @@ foreach ($commentsData as $row) {
         <?php endforeach; ?>
     <?php endif; ?>
 
-    <!-- Comments Section -->
+    <!-- ✅ Comments Section -->
     <h2 class="text-2xl font-bold mb-4">Student Comments</h2>
     <?php if (empty($commentsGrouped)): ?>
-        <p>No comments yet.</p>
+        <p class="text-gray-600">No comments yet.</p>
     <?php else: ?>
         <?php foreach ($commentsGrouped as $period => $comments): ?>
             <div class="bg-white rounded-xl shadow p-5 mb-6">

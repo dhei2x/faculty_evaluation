@@ -3,7 +3,8 @@
 session_start();
 require_once '../php/db.php';
 require_once '../php/auth.php';
-require_role('admin');
+require_role(['admin', 'superadmin']);
+
 
 // Add Subject
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['action'] === 'add') {
@@ -102,8 +103,6 @@ function ordinal(int $n): string {
         position: relative;
         background-color: #f3f4f6;
     }
-
-    /* Transparent watermark background */
     body::before {
         content: "";
         position: fixed;
@@ -113,40 +112,22 @@ function ordinal(int $n): string {
         height: 100%;
         background: url('../php/logo.png') no-repeat center center;
         background-size: 900px 900px;
-        opacity: 0.13; /* slightly stronger watermark */
+        opacity: 0.13;
         pointer-events: none;
         z-index: 0;
     }
-
-    /* Content area slightly transparent to show watermark */
     .content {
         position: relative;
         z-index: 1;
-        background-color: rgba(255, 255, 255, 0.75); /* a bit more transparent */
+        background-color: rgba(255, 255, 255, 0.75);
         border-radius: 0.75rem;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         padding: 2rem;
     }
-
-    /* Keep table rows solid white for readability */
-    table tr {
-        background-color: rgba(255, 255, 255, 0.95) !important;
-    }
-
-    /* Table headers slightly gray */
-    thead tr {
-        background-color: rgba(229, 231, 235, 0.95) !important; /* Tailwind gray-200 */
-    }
-
-    /* Subtotals / totals keep contrast */
-    tr.bg-gray-100,
-    tr.bg-yellow-100,
-    tr.bg-green-200 {
-        background-color: rgba(243, 244, 246, 0.9) !important;
-    }
-</style>
-
-
+    table tr { background-color: rgba(255, 255, 255, 0.95) !important; }
+    thead tr { background-color: rgba(229, 231, 235, 0.95) !important; }
+    tr.bg-gray-100, tr.bg-yellow-100, tr.bg-green-200 { background-color: rgba(243, 244, 246, 0.9) !important; }
+    </style>
 </head>
 <body class="p-6 bg-gray-100">
 <div class="content">
@@ -157,7 +138,6 @@ function ordinal(int $n): string {
 
     <h1 class="text-2xl font-bold mb-4">Manage Subjects</h1>
 
-    <!-- Error Message -->
     <?php if (isset($_SESSION['error'])): ?>
         <div class="bg-red-100 text-red-800 border border-red-300 p-3 mb-4 rounded">
             <?= $_SESSION['error']; unset($_SESSION['error']); ?>
@@ -175,7 +155,6 @@ function ordinal(int $n): string {
         <input type="text" name="prerequisite" placeholder="Prerequisite" class="border p-2 rounded col-span-2">
         <input type="text" name="course" placeholder="Course" class="border p-2 rounded">
 
-        <!-- Year dropdown -->
         <select name="year_level" class="border p-2 rounded">
             <option value="1">1st Year</option>
             <option value="2">2nd Year</option>
@@ -183,7 +162,6 @@ function ordinal(int $n): string {
             <option value="4">4th Year</option>
         </select>
 
-        <!-- Semester dropdown -->
         <select name="semester" class="border p-2 rounded">
             <option value="1">1st Semester</option>
             <option value="2">2nd Semester</option>
@@ -203,13 +181,11 @@ function ordinal(int $n): string {
     }
 
     $globalLecTotal = $globalLabTotal = $globalUnitTotal = 0;
+    $courses = ['BPA', 'BSA']; // Add all courses
     ?>
 
     <?php foreach ($grouped as $course => $years): ?>
-        <h1 class="text-2xl font-bold text-purple-700 mt-8 mb-4">
-            <?= htmlspecialchars($course) ?>
-        </h1>
-
+        <h1 class="text-2xl font-bold text-purple-700 mt-8 mb-4"><?= htmlspecialchars($course) ?></h1>
         <?php 
         $courseLecTotal = $courseLabTotal = $courseUnitTotal = 0;
         ?>
@@ -229,6 +205,7 @@ function ordinal(int $n): string {
                             <th class="p-2">Lab</th>
                             <th class="p-2">Units</th>
                             <th class="p-2">Prerequisite</th>
+                            <th class="p-2">Course</th>
                             <th class="p-2">Year</th>
                             <th class="p-2">Sem</th>
                             <th class="p-2">Actions</th>
@@ -253,6 +230,19 @@ function ordinal(int $n): string {
                                     <td class="p-2"><input type="number" name="lab_hours" value="<?= (int)$sub['lab_hours'] ?>" class="border p-1 rounded w-16" min="0"></td>
                                     <td class="p-2"><input type="number" name="units" value="<?= (int)$sub['units'] ?>" class="border p-1 rounded w-16" min="0"></td>
                                     <td class="p-2"><input type="text" name="prerequisite" value="<?= htmlspecialchars($sub['prerequisite']) ?>" class="border p-1 rounded w-32"></td>
+
+                                    <!-- Course Dropdown -->
+                                    <td class="p-2">
+                                        <select name="course" class="border p-1 rounded w-24">
+                                            <?php foreach ($courses as $courseOption): ?>
+                                                <option value="<?= $courseOption ?>" <?= $sub['course'] == $courseOption ? 'selected' : '' ?>>
+                                                    <?= $courseOption ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+
+                                    <!-- Year dropdown -->
                                     <td class="p-2">
                                         <select name="year_level" class="border p-1 rounded">
                                             <option value="1" <?= $sub['year_level']==1 ? 'selected' : '' ?>>1st</option>
@@ -261,6 +251,8 @@ function ordinal(int $n): string {
                                             <option value="4" <?= $sub['year_level']==4 ? 'selected' : '' ?>>4th</option>
                                         </select>
                                     </td>
+
+                                    <!-- Semester dropdown -->
                                     <td class="p-2">
                                         <select name="semester" class="border p-1 rounded">
                                             <option value="1" <?= $sub['semester']==1 ? 'selected' : '' ?>>1st</option>

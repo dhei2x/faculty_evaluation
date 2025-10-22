@@ -1,8 +1,20 @@
-<?php  
+<?php
+ob_start();
 session_start();
+
 require_once '../php/db.php';
 require_once '../php/auth.php';
-require_role('admin');
+require_role(['admin', 'superadmin']);
+
+// ✅ Load CSP once
+$cspFile = __DIR__ . '/../php/policy.csp';
+if (file_exists($cspFile)) {
+    $cspRules = trim(file_get_contents($cspFile));
+    header("Content-Security-Policy: $cspRules");
+}
+
+// ✅ Detect Super Admin
+$isSuperAdmin = (isset($_SESSION['role']) && in_array($_SESSION['role'], ['superadmin', 'super_admin']));
 
 // 📌 Academic years for filter dropdown
 $years = $pdo->query("SELECT id, year, semester FROM academic_years ORDER BY year DESC")->fetchAll();
@@ -14,7 +26,7 @@ if (!empty($_GET['academic_year_id'])) {
     $params[] = $_GET['academic_year_id'];
 }
 
-// 📊 Main ratings query (only faculties with evaluations)
+// 📊 Main ratings query (faculty + criteria)
 $sql = "
 SELECT
   f.id AS faculty_id,
@@ -29,7 +41,8 @@ JOIN faculties f ON er.faculty_id = f.id
 JOIN questions q ON er.question_id = q.id
 JOIN evaluation_criteria ec ON q.criteria_id = ec.id
 JOIN academic_years ay ON er.academic_year_id = ay.id
-$where
+WHERE er.rating IS NOT NULL
+" . ($where ? " AND er.academic_year_id = ?" : "") . "
 GROUP BY f.id, ec.id, ay.id
 ORDER BY f.last_name, f.first_name, ay.year DESC
 ";
@@ -38,21 +51,24 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $rows = $stmt->fetchAll();
 
-// 💬 Comments query
+// 💬 Comments query (fetch only overall comments)
 $commentSql = "
 SELECT
   f.id AS faculty_id,
   ay.year,
   ay.semester,
-  GROUP_CONCAT(DISTINCT er.comment SEPARATOR ' | ') AS comments
+  GROUP_CONCAT(DISTINCT TRIM(er.comment) SEPARATOR ' | ') AS comments
 FROM evaluation_report er
 JOIN faculties f ON er.faculty_id = f.id
 JOIN academic_years ay ON er.academic_year_id = ay.id
-WHERE er.comment IS NOT NULL AND er.comment != ''
+WHERE er.comment IS NOT NULL 
+  AND TRIM(er.comment) != ''
 " . ($where ? " AND er.academic_year_id = ?" : "") . "
 GROUP BY f.id, ay.id
 ORDER BY ay.year DESC, ay.semester DESC
 ";
+
+
 $commentStmt = $pdo->prepare($commentSql);
 $commentStmt->execute($params);
 $comments = $commentStmt->fetchAll();
@@ -75,7 +91,7 @@ foreach ($rows as $row) {
     $grouped[$fid]['periods'][$period]['ratings'][] = $row;
 }
 
-// 📌 Add comments
+// 🧩 Attach comments to the right faculty + period
 foreach ($comments as $c) {
     $fid    = $c['faculty_id'];
     $period = $c['year'] . ' - ' . $c['semester'];
@@ -89,34 +105,23 @@ foreach ($comments as $c) {
 <head>
     <title>Evaluation Reports</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-
     <style>
         body {
             position: relative;
             background-color: #f3f4f6;
         }
-
-        /* Transparent logo watermark */
         body::before {
             content: "";
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             background: url('../php/logo.png') no-repeat center center;
             background-size: 1100px 1100px;
             opacity: 0.09;
             pointer-events: none;
             z-index: 0;
         }
-
-        .content {
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Percentage colors */
+        .content { position: relative; z-index: 1; }
         .percent-green { color: #16a34a; font-weight: 600; }
         .percent-yellow { color: #ca8a04; font-weight: 600; }
         .percent-red { color: #dc2626; font-weight: 600; }
@@ -173,7 +178,7 @@ foreach ($comments as $c) {
                             <tr class="bg-gray-200">
                                 <th class="border px-4 py-2">Academic Year</th>
                                 <th class="border px-4 py-2">Percentage</th>
-                                <th class="border px-4 py-2">Total Students Responses</th>
+                                <th class="border px-4 py-2">Total Student Responses</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -203,7 +208,7 @@ foreach ($comments as $c) {
                             <tr class="bg-gray-100">
                                 <th class="border px-4 py-2">Criteria</th>
                                 <th class="border px-4 py-2">Percentage</th>
-                                <th class="border px-4 py-2">Students Responses</th>
+                                <th class="border px-4 py-2">Student Responses</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -220,8 +225,8 @@ foreach ($comments as $c) {
                         </tbody>
                     </table>
 
-                    <!-- Student Comments -->
-                    <?php if (!empty($data['comments'])): ?>
+                    <!-- 💬 Student Comments (Super Admin only) -->
+                    <?php if ($isSuperAdmin && !empty($data['comments'])): ?>
                         <div class="mt-4 mb-6">
                             <h4 class="text-md font-semibold text-gray-800">💬 Student Comments:</h4>
                             <ul class="list-disc pl-5 space-y-1 text-gray-700">

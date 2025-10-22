@@ -2,7 +2,8 @@
 session_start();
 require_once '../php/db.php';
 require_once '../php/auth.php';
-require_role('admin');
+require_role(['admin', 'superadmin']);
+
 
 if (!isset($_GET['id'])) {
     header("Location: users.php");
@@ -117,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label class="block text-sm font-medium text-gray-700">Role</label>
         <select name="role" required class="mt-1 block w-full border border-gray-300 rounded p-2">
           <option value="faculty" <?= $user['role'] === 'faculty' ? 'selected' : '' ?>>Faculty</option>
-          <option value="students" <?= $user['role'] === 'students' ? 'selected' : '' ?>>Students</option>
+          <option value="students" <?= $user['role'] === 'students' ? 'selected' : '' ?>>Students</option>z
         </select>
       </div>
       <div class="flex space-x-4">

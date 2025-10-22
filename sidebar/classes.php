@@ -2,7 +2,8 @@
 session_start();
 require_once '../php/db.php';
 require_once '../php/auth.php';
-require_role('admin');
+require_role(['admin', 'superadmin']);
+
 
 $message = "";
 $message_type = "error"; // default type

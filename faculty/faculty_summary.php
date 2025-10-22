@@ -7,9 +7,14 @@ if ($_SESSION['role'] !== 'faculty' || empty($_SESSION['faculty_id'])) {
     exit;
 }
 
-$faculty_id   = $_SESSION['faculty_id'];
+// Fetch faculty numeric ID from database using faculty_id
+$stmt = $pdo->prepare("SELECT id FROM faculties WHERE faculty_id = ?");
+$stmt->execute([$_SESSION['faculty_id']]);
+$facultyRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+$faculty_id = $facultyRecord['id'] ?? 0;
 $faculty_name = $_SESSION['faculty_name'] ?? '';
 
+// ✅ Fetch summary
 $stmt = $pdo->prepare("
     SELECT 
         ec.name AS criteria, 
@@ -31,12 +36,12 @@ $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <meta charset="UTF-8">
     <title>Evaluation Summary</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-
-    <style>
+<style>
         body {
             position: relative;
             background-color: #f3f4f6;
         }
+        /* ✅ Background logo behind content */
         body::before {
             content: "";
             position: fixed;
@@ -46,17 +51,17 @@ $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             height: 100%;
             background: url('../php/logo.png') no-repeat center center;
             background-size: 900px 900px;
-            opacity: 0.08;
+            opacity: 0.09;
             pointer-events: none;
             z-index: 0;
         }
         .content {
             position: relative;
-            z-index: 1;
+            z-index: 1; /* ensures it's above the background logo */
             background-color: #ffffff;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             width: 100%;
         }
         th {
@@ -73,38 +78,37 @@ $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </style>
 </head>
 
-<body class="flex bg-gray-100 min-h-screen">
+<body class="bg-gray-100 flex min-h-screen">
     <?php include 'faculty_sidebar.php'; ?>
 
-    <div class="ml-64 p-6 w-full">
-        <div class="content">
-            <h1 class="text-2xl font-bold mb-4 text-blue-800">Evaluation Summary</h1>
+    <!-- ✅ Main content area beside sidebar -->
+    <main class="flex-1 p-8 content">
+        <h1 class="text-3xl font-bold mb-6 text-blue-800">Evaluation Summary</h1>
 
-            <?php if (empty($data)): ?>
-                <p class="text-gray-600">No summary data available.</p>
-            <?php else: ?>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full bg-white rounded shadow border">
-                        <thead>
+        <?php if (empty($data)): ?>
+            <p class="text-gray-600">No summary data available.</p>
+        <?php else: ?>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white rounded shadow border">
+                    <thead>
+                        <tr>
+                            <th class="w-1/2">Criteria</th>
+                            <th class="w-1/4">Average (%)</th>
+                            <th class="w-1/4">Number of Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($data as $row): ?>
                             <tr>
-                                <th class="w-1/2">Criteria</th>
-                                <th class="w-1/4">Average (%)</th>
-                                <th class="w-1/4">Number of Comments</th>
+                                <td><?= htmlspecialchars($row['criteria']) ?></td>
+                                <td class="text-blue-700 font-semibold text-center"><?= $row['average'] ?>%</td>
+                                <td class="text-center"><?= $row['comments'] ?></td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($data as $row): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($row['criteria']) ?></td>
-                                    <td><?= $row['average'] ?>%</td>
-                                    <td><?= $row['comments'] ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-        </div>
-    </div>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </main>
 </body>
 </html>

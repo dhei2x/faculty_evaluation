@@ -121,27 +121,6 @@ while ($row = $criteriaStmt->fetch(PDO::FETCH_ASSOC)) {
                     <?php endforeach; ?>
                 </select>
             </div>
-
-            <!-- Class -->
-            <div class="card mt-4">
-                <label class="block font-semibold mb-2">Select Class</label>
-                <select id="classSelect" name="class_id" required class="border p-2 rounded w-full">
-                    <option value="">-- Choose Class --</option>
-                    <?php foreach ($classes as $class): ?>
-                        <option value="<?= $class['id'] ?>"><?= htmlspecialchars($class['class_name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <!-- Subject (auto filters based on class) -->
-            <div class="card mt-4">
-                <label class="block font-semibold mb-2">Select Subject</label>
-                <select id="subjectSelect" name="subject_id" required class="border p-2 rounded w-full">
-                    <option value="">-- Choose Subject --</option>
-                    <!-- will be filled by JS -->
-                </select>
-            </div>
-
             <!-- Legend -->
             <div class="card flex justify-between text-sm font-semibold text-gray-700">
                 <span>1 - Poor</span>
@@ -175,7 +154,7 @@ while ($row = $criteriaStmt->fetch(PDO::FETCH_ASSOC)) {
             <!-- Comment -->
             <div class="card">
                 <label class="block font-semibold mb-1">Additional Comments (optional)</label>
-                <textarea name="comments[]" rows="4" class="w-full border rounded p-2" placeholder="Write your feedback here..."></textarea>
+                <textarea name="comment" rows="4" class="w-full border rounded p-2" placeholder="Write your feedback here..."></textarea>
             </div>
 
             <div class="flex justify-end">

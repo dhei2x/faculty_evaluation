@@ -11,13 +11,6 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'students' || !isset($_SE
 $studentId   = $_SESSION['student_id'];
 $studentName = $_SESSION['student_name'] ?? '';
 
-// ✅ Handle popup close
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_welcome'])) {
-    unset($_SESSION['welcome']);
-    header("Location: student_dashboard.php");
-    exit;
-}
-
 // ✅ Flash messages
 $successMsg = $_GET['success'] ?? '';
 $errorMsg   = $_GET['error'] ?? '';
@@ -47,14 +40,26 @@ $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $evaluations = [];
 foreach ($data as $row) {
     $key = $row['faculty_name'] . '|' . $row['created_at'];
-    $evaluations[$key]['faculty_name'] = $row['faculty_name'];
-    $evaluations[$key]['created_at']   = $row['created_at'];
-    $evaluations[$key]['comment']      = $row['comment'];
+    if (!isset($evaluations[$key])) {
+        $evaluations[$key] = [
+            'faculty_name' => $row['faculty_name'],
+            'created_at' => $row['created_at'],
+            'comment' => '', // default empty
+            'items' => []
+        ];
+    }
+
+    // Add item
     $evaluations[$key]['items'][] = [
         'criteria' => $row['criteria_name'],
         'question' => $row['question_text'],
         'rating'   => $row['rating']
     ];
+
+    // Only set comment if not set yet and this row has a non-empty comment.
+    if (empty($evaluations[$key]['comment']) && !empty(trim($row['comment']))) {
+        $evaluations[$key]['comment'] = $row['comment'];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -62,7 +67,7 @@ foreach ($data as $row) {
 <head>
     <title>Student Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <style>
+     <style>
         body {
             position: relative;
             background-color: #f3f4f6;
@@ -140,21 +145,6 @@ foreach ($data as $row) {
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
-
-<!-- ✅ Welcome Popup Modal (always in front now) -->
-<?php if (!empty($_SESSION['welcome'])): ?>
-<div id="welcomeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-  <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm text-center relative z-50">
-    <h2 class="text-xl font-bold mb-4"></h2>
-    <p class="mb-4"><?= htmlspecialchars($_SESSION['welcome']) ?></p>
-    <form method="post">
-      <button type="submit" name="close_welcome" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-        Continue
-      </button>
-    </form>
-  </div>
-</div>
-<?php endif; ?>
 
 </body>
 </html>

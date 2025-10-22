@@ -1,8 +1,22 @@
 <?php 
+ob_start();
 session_start();
+
 require_once '../php/db.php';
 require_once '../php/auth.php';
-require_role('admin');
+
+// ✅ Allow only super admins (handles both spellings)
+if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['superadmin', 'super_admin'])) {
+    header("Location: ../php/admin_dashboard.php");
+    exit;
+}
+
+// ✅ Load CSP (no newline issues)
+$cspFile = __DIR__ . '/../php/policy.csp';
+if (file_exists($cspFile)) {
+    $cspRules = trim(file_get_contents($cspFile));
+    header("Content-Security-Policy: $cspRules");
+}
 
 // ✅ Faculty-level evaluation summary (with name parts)
 $sql = "
