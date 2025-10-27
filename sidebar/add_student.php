@@ -2,7 +2,7 @@
 session_start();
 require_once '../php/db.php';
 require_once '../php/auth.php';
-require_role(['admin', 'super_admin']);
+require_role(['admin', 'superadmin']);
 
 
 $errors = [];

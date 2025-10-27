@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$email, $token, $expires]);
 
             // Send email
-            $resetLink = "http://localhost/faculty_eval/php/reset_password.php?token=$token";
+            $resetLink = "../php/reset_password.php?token=$token";
 
             $mail = new PHPMailer(true);
             try {

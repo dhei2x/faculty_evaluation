@@ -1,9 +1,21 @@
 <?php
-$host = '127.0.0.1';
-$db   = 'faculty_evaluation';
-$user = 'root';
-$pass = '';
+
+// local credentials 
+ $host = '127.0.0.1';
+ $db   = 'faculty_evaluation';
+ $user = 'root';
+ $pass = '';
 $charset = 'utf8mb4';
+
+
+// infinity.free.credentials
+
+// $db = 'if0_40258485_faculty_evaluation_dbmain';
+// $user = 'if0_40258485';
+// $pass = 'DU2ndRHeDF7BCJ';
+// $host = 'sql204.infinityfree.com';
+// $charset = 'utf8';
+
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
 $options = [
